@@ -24,4 +24,14 @@ export class ReportsController {
   payments(@Query('from') from?: string, @Query('to') to?: string) {
     return this.reportsService.paymentsReport(from, to);
   }
+
+  @Get('reports/trends')
+  trends(@Query('months') months?: string) {
+    return this.reportsService.trends(months ? Number(months) : 6);
+  }
+
+  @Get('reports/projections')
+  projections(@Query('month') month?: string) {
+    return this.reportsService.projectedIncome(month);
+  }
 }
