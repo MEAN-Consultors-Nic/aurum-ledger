@@ -15,6 +15,7 @@ import { ImportsModule } from './imports/imports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PlannedIncomesModule } from './planned-incomes/planned-incomes.module';
+import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses.module';
 import { ReportsModule } from './reports/reports.module';
 import { SettingsModule } from './settings/settings.module';
 import { ServicesModule } from './services/services.module';
@@ -63,6 +64,7 @@ import { UsersModule } from './users/users.module';
     EstimatesModule,
     PaymentsModule,
     PlannedIncomesModule,
+    RecurringExpensesModule,
     ReportsModule,
     ImportsModule,
     NotificationsModule,
