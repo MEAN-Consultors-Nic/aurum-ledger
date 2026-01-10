@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AccountsService } from '../accounts/accounts.service';
+import { RecurringExpensesService } from '../recurring-expenses/recurring-expenses.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { FilterLoanDto } from './dto/filter-loan.dto';
@@ -18,6 +19,7 @@ export class LoansService {
     @InjectModel(LoanPaymentOccurrence.name)
     private readonly occurrenceModel: Model<LoanPaymentOccurrenceDocument>,
     private readonly accountsService: AccountsService,
+    private readonly recurringExpensesService: RecurringExpensesService,
     private readonly transactionsService: TransactionsService,
   ) {}
 
@@ -40,6 +42,20 @@ export class LoansService {
       createdBy: userId,
       updatedBy: userId,
     });
+
+    await this.recurringExpensesService.create(
+      {
+        name: `Loan payment: ${dto.name}`,
+        amount: dto.installmentAmount,
+        currency: dto.currency,
+        accountId: dto.accountId,
+        categoryId: dto.categoryId,
+        daysOfMonth: dto.daysOfMonth,
+        isActive: dto.isActive ?? true,
+        notes: dto.notes,
+      },
+      userId,
+    );
 
     await this.ensureFutureOccurrences(loan);
     return loan;
