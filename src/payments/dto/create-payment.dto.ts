@@ -8,8 +8,9 @@ export class CreatePaymentDto {
   @IsMongoId()
   clientId: string;
 
+  @IsOptional()
   @IsMongoId()
-  accountId: string;
+  accountId?: string;
 
   @IsNumber()
   @Min(0)
@@ -39,8 +40,8 @@ export class CreatePaymentDto {
   @IsDateString()
   paymentDate: string;
 
-  @IsEnum(['cash', 'bank', 'card', 'transfer', 'other'])
-  method: 'cash' | 'bank' | 'card' | 'transfer' | 'other';
+  @IsEnum(['cash', 'bank', 'paypal', 'card', 'transfer', 'other'])
+  method: 'cash' | 'bank' | 'paypal' | 'card' | 'transfer' | 'other';
 
   @IsOptional()
   @IsString()

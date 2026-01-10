@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -20,6 +20,12 @@ export class PaymentsService {
   ) {}
 
   async create(dto: CreatePaymentDto, userId?: Types.ObjectId) {
+    if (dto.method === 'bank' && !dto.accountId) {
+      throw new BadRequestException('Account is required for bank payments');
+    }
+    if (!dto.accountId) {
+      throw new BadRequestException('Account is required for this payment method');
+    }
     const contract = await this.contractsService.getContractById(dto.contractId);
     const currency = dto.currency ?? 'USD';
     const exchangeRate = dto.exchangeRate ?? (await this.getFxRate());

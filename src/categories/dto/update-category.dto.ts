@@ -6,8 +6,8 @@ export class UpdateCategoryDto {
   name?: string;
 
   @IsOptional()
-  @IsIn(['income', 'expense'])
-  type?: 'income' | 'expense';
+  @IsIn(['income', 'expense', 'transfer'])
+  type?: 'income' | 'expense' | 'transfer';
 
   @IsOptional()
   @IsMongoId()

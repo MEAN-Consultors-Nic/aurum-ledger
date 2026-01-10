@@ -34,9 +34,9 @@ export class Payment {
 
   @Prop({
     required: true,
-    enum: ['cash', 'bank', 'card', 'transfer', 'other'],
+    enum: ['cash', 'bank', 'paypal', 'card', 'transfer', 'other'],
   })
-  method: 'cash' | 'bank' | 'card' | 'transfer' | 'other';
+  method: 'cash' | 'bank' | 'paypal' | 'card' | 'transfer' | 'other';
 
   @Prop()
   reference?: string;
