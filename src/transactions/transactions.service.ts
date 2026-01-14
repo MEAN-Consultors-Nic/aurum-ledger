@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model, SortOrder, Types } from 'mongoose';
 import { AccountsService } from '../accounts/accounts.service';
 import { ContractsService } from '../contracts/contracts.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
@@ -199,7 +199,7 @@ export class TransactionsService {
 
     const sortField = filter.sortField ?? 'date';
     const sortDirection = filter.sortDirection === 'asc' ? 1 : -1;
-    const sort = { [sortField]: sortDirection };
+    const sort: Record<string, SortOrder> = { [sortField]: sortDirection };
 
     return this.transactionModel
       .find(query)
