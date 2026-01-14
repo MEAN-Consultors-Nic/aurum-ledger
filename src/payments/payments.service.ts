@@ -74,7 +74,7 @@ export class PaymentsService {
   async findAll(filter: FilterPaymentDto) {
     const page = Math.max(Number(filter.page) || 1, 1);
     const limit = Math.min(Math.max(Number(filter.limit) || 20, 1), 100);
-    const query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = { voidedAt: { $exists: false } };
 
     if (filter.clientId) {
       query.clientId = new Types.ObjectId(filter.clientId);
@@ -114,7 +114,7 @@ export class PaymentsService {
 
   async findById(id: string) {
     const payment = await this.paymentModel
-      .findById(id)
+      .findOne({ _id: id, voidedAt: { $exists: false } })
       .populate('clientId', 'name')
       .populate('contractId', 'title');
     if (!payment) {
@@ -138,7 +138,7 @@ export class PaymentsService {
   private async recalculateContract(contractId: string) {
     const contractObjectId = new Types.ObjectId(contractId);
     const result = await this.paymentModel.aggregate([
-      { $match: { contractId: contractObjectId } },
+      { $match: { contractId: contractObjectId, voidedAt: { $exists: false } } },
       {
         $group: {
           _id: '$contractId',

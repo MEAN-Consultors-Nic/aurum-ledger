@@ -38,6 +38,15 @@ export class Transaction {
   @Prop()
   notes?: string;
 
+  @Prop()
+  voidedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  voidedBy?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId })
+  transferGroupId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'Payment' })
   linkedPaymentId?: Types.ObjectId;
 

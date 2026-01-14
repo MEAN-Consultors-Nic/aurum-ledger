@@ -2,16 +2,20 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AccountsService } from '../accounts/accounts.service';
+import { ContractsService } from '../contracts/contracts.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { CreateTransferDto } from './dto/create-transfer.dto';
 import { FilterTransactionDto } from './dto/filter-transaction.dto';
+import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
 import { Transaction, TransactionDocument } from './schemas/transaction.schema';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     @InjectModel(Transaction.name) private readonly transactionModel: Model<TransactionDocument>,
+    @InjectModel(Payment.name) private readonly paymentModel: Model<PaymentDocument>,
     private readonly accountsService: AccountsService,
+    private readonly contractsService: ContractsService,
   ) {}
 
   async create(dto: CreateTransactionDto, userId?: Types.ObjectId) {
@@ -84,6 +88,7 @@ export class TransactionsService {
     }
 
     const date = new Date(dto.date);
+    const transferGroupId = new Types.ObjectId();
     const outTx = await this.transactionModel.create({
       type: 'transfer',
       flow: 'out',
@@ -95,6 +100,7 @@ export class TransactionsService {
       date,
       reference: dto.reference,
       notes: dto.notes,
+      transferGroupId,
       createdBy: userId,
       updatedBy: userId,
     });
@@ -110,6 +116,7 @@ export class TransactionsService {
       date,
       reference: dto.reference,
       notes: dto.notes,
+      transferGroupId,
       createdBy: userId,
       updatedBy: userId,
     });
@@ -164,7 +171,7 @@ export class TransactionsService {
   }
 
   async findAll(filter: FilterTransactionDto) {
-    const query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = { voidedAt: { $exists: false } };
     if (filter.accountId) {
       query.accountId = new Types.ObjectId(filter.accountId);
     }
@@ -190,9 +197,13 @@ export class TransactionsService {
       }
     }
 
+    const sortField = filter.sortField ?? 'date';
+    const sortDirection = filter.sortDirection === 'asc' ? 1 : -1;
+    const sort = { [sortField]: sortDirection };
+
     return this.transactionModel
       .find(query)
-      .sort({ date: -1 })
+      .sort(sort)
       .populate('accountId', 'name currency')
       .populate('categoryId', 'name type')
       .populate('linkedClientId', 'name')
@@ -207,7 +218,104 @@ export class TransactionsService {
     return tx;
   }
 
+  async void(id: string, userId?: Types.ObjectId) {
+    const tx = await this.transactionModel.findById(id);
+    if (!tx) {
+      throw new NotFoundException('Transaction not found');
+    }
+    if (tx.voidedAt) {
+      throw new BadRequestException('Transaction already voided');
+    }
+
+    const voidedAt = new Date();
+    if (tx.transferGroupId) {
+      await this.transactionModel.updateMany(
+        { transferGroupId: tx.transferGroupId, voidedAt: { $exists: false } },
+        { voidedAt, voidedBy: userId },
+      );
+    } else if (tx.type === 'transfer' && tx.toAccountId) {
+      await this.transactionModel.updateMany(
+        {
+          type: 'transfer',
+          accountId: tx.accountId,
+          toAccountId: tx.toAccountId,
+          date: tx.date,
+          voidedAt: { $exists: false },
+        },
+        { voidedAt, voidedBy: userId },
+      );
+      await this.transactionModel.updateMany(
+        {
+          type: 'transfer',
+          accountId: tx.toAccountId,
+          toAccountId: tx.accountId,
+          date: tx.date,
+          voidedAt: { $exists: false },
+        },
+        { voidedAt, voidedBy: userId },
+      );
+    } else {
+      await this.transactionModel.findByIdAndUpdate(id, {
+        voidedAt,
+        voidedBy: userId,
+      });
+    }
+
+    if (tx.linkedPaymentId) {
+      await this.paymentModel.findByIdAndUpdate(tx.linkedPaymentId, {
+        voidedAt,
+        voidedBy: userId,
+      });
+    }
+
+    if (tx.linkedContractId) {
+      await this.recalculateContract(tx.linkedContractId.toString());
+    }
+
+    return { success: true };
+  }
+
   async removeByPaymentId(paymentId: Types.ObjectId) {
     await this.transactionModel.deleteMany({ linkedPaymentId: paymentId });
+  }
+
+  private async recalculateContract(contractId: string) {
+    const contractObjectId = new Types.ObjectId(contractId);
+    const result = await this.paymentModel.aggregate([
+      { $match: { contractId: contractObjectId, voidedAt: { $exists: false } } },
+      {
+        $group: {
+          _id: '$contractId',
+          paidTotal: {
+            $sum: {
+              $ifNull: [
+                '$appliedAmount',
+                { $add: ['$amount', { $ifNull: ['$retentionAmount', 0] }] },
+              ],
+            },
+          },
+          paymentCount: { $sum: 1 },
+          lastPaymentDate: { $max: '$paymentDate' },
+        },
+      },
+    ]);
+
+    if (result.length === 0) {
+      await this.contractsService.updateFinancials(
+        contractObjectId,
+        0,
+        0,
+        undefined,
+      );
+      return;
+    }
+
+    const aggregate = result[0];
+    await this.contractsService.updateFinancials(
+      contractObjectId,
+      aggregate.paidTotal,
+      aggregate.paymentCount,
+      aggregate.lastPaymentDate,
+    );
   }
 }

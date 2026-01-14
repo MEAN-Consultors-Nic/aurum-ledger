@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -33,5 +33,10 @@ export class TransactionsController {
   @Post('transfer')
   createTransfer(@Body() dto: CreateTransferDto, @CurrentUser() user: RequestUser) {
     return this.transactionsService.createTransfer(dto, user?._id);
+  }
+
+  @Patch(':id/void')
+  void(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.transactionsService.void(id, user?._id);
   }
 }

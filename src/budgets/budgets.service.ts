@@ -92,6 +92,7 @@ export class BudgetsService {
           type: 'expense',
           categoryId: { $in: categoryIds },
           date: { $gte: start, $lte: end },
+          voidedAt: { $exists: false },
         },
       },
       {

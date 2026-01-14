@@ -22,6 +22,7 @@ export class FinanceService {
         { $group: { _id: '$currency', total: { $sum: '$initialBalance' } } },
       ]),
       this.transactionModel.aggregate([
+        { $match: { voidedAt: { $exists: false } } },
         {
           $group: {
             _id: '$currency',
@@ -53,7 +54,7 @@ export class FinanceService {
   }
 
   async byCategory(month?: number, year?: number) {
-    const match: Record<string, unknown> = { type: 'expense' };
+    const match: Record<string, unknown> = { type: 'expense', voidedAt: { $exists: false } };
     if (month && year) {
       const start = new Date(year, month - 1, 1);
       const end = new Date(year, month, 1);
@@ -95,7 +96,11 @@ export class FinanceService {
   }
 
   async byClient(from?: string, to?: string) {
-    const match: Record<string, unknown> = { type: 'income', linkedClientId: { $exists: true } };
+    const match: Record<string, unknown> = {
+      type: 'income',
+      linkedClientId: { $exists: true },
+      voidedAt: { $exists: false },
+    };
     if (from || to) {
       match.date = {};
       if (from) {
@@ -135,7 +140,11 @@ export class FinanceService {
   }
 
   async byContract(from?: string, to?: string) {
-    const match: Record<string, unknown> = { type: 'income', linkedContractId: { $exists: true } };
+    const match: Record<string, unknown> = {
+      type: 'income',
+      linkedContractId: { $exists: true },
+      voidedAt: { $exists: false },
+    };
     if (from || to) {
       match.date = {};
       if (from) {

@@ -39,7 +39,7 @@ export class AccountsService {
 
     const accountIds = accounts.map((account) => account._id);
     const totals = await this.transactionModel.aggregate([
-      { $match: { accountId: { $in: accountIds } } },
+      { $match: { accountId: { $in: accountIds }, voidedAt: { $exists: false } } },
       {
         $group: {
           _id: '$accountId',

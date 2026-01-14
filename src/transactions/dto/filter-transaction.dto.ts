@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export class FilterTransactionDto {
   @IsOptional()
@@ -28,4 +28,14 @@ export class FilterTransactionDto {
   @IsOptional()
   @IsString()
   to?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['date', 'amount', 'type', 'accountId', 'categoryId', 'notes'])
+  sortField?: 'date' | 'amount' | 'type' | 'accountId' | 'categoryId' | 'notes';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['asc', 'desc'])
+  sortDirection?: 'asc' | 'desc';
 }

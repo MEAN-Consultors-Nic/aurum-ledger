@@ -381,7 +381,7 @@ export class ReportsService {
           { $group: { _id: '$currency', total: { $sum: '$initialBalance' } } },
         ]),
         this.transactionModel.aggregate([
-          { $match: { date: { $lte: end } } },
+          { $match: { date: { $lte: end }, voidedAt: { $exists: false } } },
           {
             $group: {
               _id: '$currency',

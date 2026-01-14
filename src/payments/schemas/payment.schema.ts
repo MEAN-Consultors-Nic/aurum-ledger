@@ -44,6 +44,12 @@ export class Payment {
   @Prop()
   notes?: string;
 
+  @Prop()
+  voidedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  voidedBy?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'User' })
   createdBy?: Types.ObjectId;
 }
