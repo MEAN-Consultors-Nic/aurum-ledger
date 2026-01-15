@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 export class ConfirmOccurrenceDto {
   @IsOptional()
   @IsNumber()
-  @Min(0)
+  @Min(0.01)
   @Type(() => Number)
   receivedAmount?: number;
 
