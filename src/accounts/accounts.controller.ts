@@ -6,6 +6,7 @@ import { RequestUser } from '../common/types/request-user.type';
 import { AccountsService } from './accounts.service';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { FilterAccountDto } from './dto/filter-account.dto';
+import { ResetAccountDto } from './dto/reset-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 
 @ApiTags('accounts')
@@ -37,6 +38,15 @@ export class AccountsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.accountsService.update(id, dto, user?._id);
+  }
+
+  @Post(':id/reset')
+  resetBalance(
+    @Param('id') id: string,
+    @Body() dto: ResetAccountDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.accountsService.resetBalance(id, dto, user?._id);
   }
 
   @Delete(':id')
