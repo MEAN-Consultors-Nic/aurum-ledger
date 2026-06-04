@@ -13,6 +13,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequestUser } from '../common/types/request-user.type';
+import { ManualSendDto } from './dto/manual-send.dto';
 import { CreateRuleDto, UpdateRuleDto } from './dto/rule.dto';
 import { CreateTemplateGroupDto, UpdateTemplateGroupDto } from './dto/template-group.dto';
 import {
@@ -84,6 +85,11 @@ export class NotificationsEngineController {
   @Post('templates/preview')
   preview(@Body() dto: PreviewTemplateDto) {
     return this.engine.preview(dto);
+  }
+
+  @Post('manual-send')
+  manualSend(@Body() dto: ManualSendDto, @CurrentUser() user: RequestUser) {
+    return this.engine.manualSend(dto, user?._id);
   }
   @Post('templates/:id/test-send')
   testSend(

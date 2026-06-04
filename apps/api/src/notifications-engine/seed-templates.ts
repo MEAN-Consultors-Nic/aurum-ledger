@@ -88,6 +88,40 @@ export const SEED_TEMPLATES: SeedTemplate[] = [
 <p>Confirm it manually from Planned income if it has been received, or follow up with the source.</p>`,
   },
   {
+    key: 'contract-payment-reminder',
+    group: 'contracts',
+    name: 'Payment reminder (to client)',
+    description: 'Polite reminder sent to the client about a pending balance.',
+    eventKey: 'contract.payment_reminder',
+    subject: 'Friendly reminder: outstanding balance on {{contract.title}}',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;">Hi {{client.name}},</h2>
+<p>This is a friendly reminder that the contract <strong>{{contract.title}}</strong> still has an outstanding balance of <strong>{{money balance contract.currency}}</strong>.</p>
+<table style="width:100%;border-collapse:collapse;margin:18px 0;">
+  <tr><td style="padding:6px 0;color:#64748b;">Service</td><td style="padding:6px 0;text-align:right;">{{service.name}}</td></tr>
+  <tr><td style="padding:6px 0;color:#64748b;">Original due date</td><td style="padding:6px 0;text-align:right;">{{date contract.endDate}}</td></tr>
+  <tr><td style="padding:6px 0;color:#64748b;">Pending amount</td><td style="padding:6px 0;text-align:right;font-weight:600;">{{money balance contract.currency}}</td></tr>
+</table>
+<p>We'd appreciate it if you could confirm the payment or let us know if there's anything blocking it.</p>
+<p>Thanks,<br>MEAN Consultors</p>`,
+  },
+  {
+    key: 'contract-suspension-notice',
+    group: 'contracts',
+    name: 'Suspension notice (to client)',
+    description: 'Warning the client that service will be suspended due to unpaid balance.',
+    eventKey: 'contract.suspension_notice',
+    subject: 'Important: service suspension notice for {{contract.title}}',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;color:#be123c;">Hi {{client.name}},</h2>
+<p>We have been unable to confirm payment on the contract <strong>{{contract.title}}</strong>, which has been outstanding for <strong>{{daysOverdue}}</strong> days.</p>
+<table style="width:100%;border-collapse:collapse;margin:18px 0;">
+  <tr><td style="padding:6px 0;color:#64748b;">Service</td><td style="padding:6px 0;text-align:right;">{{service.name}}</td></tr>
+  <tr><td style="padding:6px 0;color:#64748b;">Original due date</td><td style="padding:6px 0;text-align:right;">{{date contract.endDate}}</td></tr>
+  <tr><td style="padding:6px 0;color:#64748b;">Pending amount</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#be123c;">{{money balance contract.currency}}</td></tr>
+</table>
+<p>Unless we receive payment or hear from you in the next few business days, we will need to suspend the service. To avoid interruption, please reach out as soon as possible so we can find a way forward.</p>
+<p>Thanks,<br>MEAN Consultors</p>`,
+  },
+  {
     key: 'contract-expired',
     group: 'contracts',
     name: 'Contract expired',

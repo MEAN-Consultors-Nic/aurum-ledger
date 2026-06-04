@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ClientsModule } from '../clients/clients.module';
+import { ContractsModule } from '../contracts/contracts.module';
 import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
 import { PlannedIncomeOccurrence, PlannedIncomeOccurrenceSchema } from '../planned-incomes/schemas/planned-income-occurrence.schema';
 import { Project, ProjectSchema } from '../projects/schemas/project.schema';
@@ -36,6 +37,7 @@ import { TemplateRendererService } from './template-renderer.service';
     UsersModule,
     ClientsModule,
     ProjectsModule,
+    ContractsModule,
   ],
   controllers: [NotificationsEngineController],
   providers: [

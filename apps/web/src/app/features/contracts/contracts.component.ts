@@ -9,11 +9,21 @@ import { ContractItem } from '../../core/models/contract.model';
 import { ClientItem } from '../../core/models/client.model';
 import { ServiceItem } from '../../core/models/service.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
+import {
+  SendNotificationDialogComponent,
+  SendNotificationConfig,
+} from '../../shared/send-notification-dialog/send-notification-dialog.component';
 
 @Component({
   selector: 'app-contracts',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    ActionMenuComponent,
+    SendNotificationDialogComponent,
+  ],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -323,9 +333,20 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
         </form>
       </div>
     </div>
+
+    <!-- Send notification dialog -->
+    <app-send-notification-dialog
+      [open]="isSendNotifOpen"
+      [config]="sendNotifConfig"
+      (closed)="closeSendNotif()"
+    ></app-send-notification-dialog>
   `,
 })
 export class ContractsComponent implements OnInit {
+  // Send-notification dialog state
+  isSendNotifOpen = false;
+  sendNotifConfig: SendNotificationConfig | null = null;
+
   contracts: ContractItem[] = [];
   clients: ClientItem[] = [];
   services: ServiceItem[] = [];
@@ -546,9 +567,43 @@ export class ContractsComponent implements OnInit {
   rowActions(item: ContractItem): ActionMenuItem[] {
     const balance = item.balance ?? item.amount - (item.paidTotal ?? 0);
     const omitted = !!item.paymentOmittedAt;
+    const now = Date.now();
+    const endDate = item.endDate ? new Date(item.endDate).getTime() : 0;
+    const daysUntilExpiry = endDate ? Math.ceil((endDate - now) / (24 * 60 * 60 * 1000)) : 0;
+    const isExpiringSoon = endDate > 0 && daysUntilExpiry > 0 && daysUntilExpiry <= 60;
+    const isExpired = endDate > 0 && endDate < now;
+    const hasPendingBalance = balance > 0 && !omitted && item.status === 'active';
+
     const items: ActionMenuItem[] = [
       { label: 'Edit', action: () => this.openEdit(item) },
     ];
+
+    // Send-notification actions — visible only when contextually relevant
+    if (hasPendingBalance) {
+      items.push({
+        label: isExpired ? 'Send payment reminder' : 'Send payment reminder',
+        action: () => this.openSendNotification(item, 'contract.payment_reminder', 'Send payment reminder'),
+      });
+    }
+    if (hasPendingBalance && isExpired) {
+      items.push({
+        label: 'Send suspension notice',
+        action: () => this.openSendNotification(item, 'contract.suspension_notice', 'Send suspension notice'),
+      });
+    }
+    if (isExpiringSoon && item.status === 'active') {
+      items.push({
+        label: 'Send renewal reminder',
+        action: () => this.openSendNotification(item, 'contract.expiring_soon', 'Send renewal reminder'),
+      });
+    }
+    if (isExpired && item.status === 'active') {
+      items.push({
+        label: 'Send expired notice',
+        action: () => this.openSendNotification(item, 'contract.expired', 'Send expired notice'),
+      });
+    }
+
     if (!omitted && balance > 0 && item.status === 'active') {
       items.push({
         label: 'Omit payment',
@@ -573,6 +628,30 @@ export class ContractsComponent implements OnInit {
       danger: true,
     });
     return items;
+  }
+
+  openSendNotification(item: ContractItem, eventKey: string, title: string) {
+    const clientName = this.getClientName(item);
+    const balance = item.balance ?? item.amount - (item.paidTotal ?? 0);
+    const subtitle = `${clientName} · ${item.title || 'contract'} · ${this.formatMoney(balance, this.resolveCurrency(item.currency))} pending`;
+    this.sendNotifConfig = {
+      title,
+      subtitle,
+      eventKey,
+      contextType: 'contract',
+      contextId: item._id,
+      defaultRecipients: ['contract.client'],
+      recipientSuggestions: [
+        { label: 'Client', expression: 'contract.client', description: 'Email on file for the client' },
+        { label: 'All admins', expression: 'admin', description: 'Active admin users' },
+      ],
+    };
+    this.isSendNotifOpen = true;
+  }
+
+  closeSendNotif() {
+    this.isSendNotifOpen = false;
+    this.sendNotifConfig = null;
   }
 
   openOmitPayment(item: ContractItem) {

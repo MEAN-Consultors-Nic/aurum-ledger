@@ -62,6 +62,20 @@ export class NotificationsEngineApiService {
     return this.http.post<SendTestResult>(`${this.base}/templates/${id}/test-send`, payload);
   }
 
+  manualSend(payload: {
+    templateId: string;
+    contextType: 'contract' | 'project' | 'client';
+    contextId: string;
+    recipients: string[];
+    note?: string;
+  }) {
+    return this.http.post<{
+      sent: number;
+      failed: number;
+      results: Array<{ to: string; ok: boolean; error?: string }>;
+    }>(`${this.base}/manual-send`, payload);
+  }
+
   // rules
   listRules(params?: { eventKey?: string; enabled?: boolean }) {
     let httpParams = new HttpParams();

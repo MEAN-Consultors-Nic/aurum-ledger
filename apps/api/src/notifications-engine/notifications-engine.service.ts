@@ -5,8 +5,10 @@ import { MailerService } from '../mailer/mailer.service';
 import { UsersService } from '../users/users.service';
 import { ClientsService } from '../clients/clients.service';
 import { ProjectsService } from '../projects/projects.service';
+import { ContractsService } from '../contracts/contracts.service';
 import { EVENT_CATALOG, findEventByKey } from './event-catalog';
 import { SEED_GROUPS, SEED_TEMPLATES } from './seed-templates';
+import { ManualSendDto } from './dto/manual-send.dto';
 import { CreateRuleDto, UpdateRuleDto } from './dto/rule.dto';
 import { CreateTemplateGroupDto, UpdateTemplateGroupDto } from './dto/template-group.dto';
 import {
@@ -41,6 +43,7 @@ export class NotificationsEngineService implements OnModuleInit {
     private readonly usersService: UsersService,
     private readonly clientsService: ClientsService,
     private readonly projectsService: ProjectsService,
+    private readonly contractsService: ContractsService,
   ) {}
 
   async onModuleInit() {
@@ -134,6 +137,121 @@ export class NotificationsEngineService implements OnModuleInit {
       { subject: dto.subject, bodyHtml: dto.bodyHtml, bodyText: dto.bodyText },
       ctx,
     );
+  }
+
+  async manualSend(dto: ManualSendDto, userId?: Types.ObjectId) {
+    const tpl = await this.findTemplateById(dto.templateId);
+    if (!tpl.isActive) {
+      throw new BadRequestException('Template is inactive');
+    }
+    const built = await this.buildManualContext(dto.contextType, dto.contextId);
+    const recipients = await this.resolveRecipients(dto.recipients, {
+      contractId: built.contractId,
+      projectId: built.projectId,
+      clientId: built.clientId,
+    });
+    if (recipients.length === 0) {
+      throw new BadRequestException(
+        'No valid recipients resolved. The client may not have an email on file, or no admin/assignee exists.',
+      );
+    }
+    const rendered = this.renderer.render(tpl, built.context);
+    const results: Array<{ to: string; ok: boolean; error?: string }> = [];
+
+    for (const recipient of recipients) {
+      const result = await this.mailer.send({
+        to: recipient.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+      await this.logModel.create({
+        eventKey: tpl.eventKey,
+        templateId: tpl._id,
+        contextRef: `${dto.contextType}:${dto.contextId}`,
+        recipient: recipient.email,
+        subject: rendered.subject,
+        bodyHtml: rendered.html,
+        status: result.ok ? 'sent' : 'failed',
+        error: result.ok ? undefined : result.reason,
+        sentAt: result.ok ? new Date() : undefined,
+        triggeredBy: userId,
+      });
+      results.push({
+        to: recipient.email,
+        ok: result.ok,
+        error: result.ok ? undefined : result.reason,
+      });
+    }
+    return {
+      sent: results.filter((r) => r.ok).length,
+      failed: results.filter((r) => !r.ok).length,
+      results,
+    };
+  }
+
+  private async buildManualContext(
+    contextType: 'contract' | 'project' | 'client',
+    contextId: string,
+  ): Promise<{
+    context: Record<string, unknown>;
+    contractId?: Types.ObjectId;
+    projectId?: Types.ObjectId;
+    clientId?: Types.ObjectId;
+  }> {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const now = new Date();
+    if (contextType === 'contract') {
+      const contract = (await this.contractsService.findById(contextId)) as any;
+      const balance = contract.balance ?? contract.amount - (contract.paidTotal ?? 0);
+      const endDate: Date | undefined = contract.endDate ? new Date(contract.endDate) : undefined;
+      const daysOverdue = endDate && endDate < now ? Math.ceil((now.getTime() - endDate.getTime()) / DAY_MS) : 0;
+      const daysUntilExpiry = endDate && endDate >= now ? Math.ceil((endDate.getTime() - now.getTime()) / DAY_MS) : 0;
+      const clientObj = contract.clientId && typeof contract.clientId === 'object' ? contract.clientId : null;
+      const serviceObj = contract.serviceId && typeof contract.serviceId === 'object' ? contract.serviceId : null;
+      return {
+        context: {
+          client: clientObj ? { name: clientObj.name, email: clientObj.email } : { name: '(client)', email: '' },
+          contract: {
+            title: contract.title,
+            amount: contract.amount,
+            currency: contract.currency,
+            startDate: contract.startDate,
+            endDate: contract.endDate,
+            billingPeriod: contract.billingPeriod,
+          },
+          service: serviceObj ? { name: serviceObj.name } : { name: '' },
+          balance,
+          daysOverdue,
+          daysUntilExpiry,
+        },
+        contractId: (contract._id ?? new Types.ObjectId(contextId)) as Types.ObjectId,
+        clientId: clientObj ? (clientObj._id as Types.ObjectId) : undefined,
+      };
+    }
+    if (contextType === 'project') {
+      const project = (await this.projectsService.findById(contextId)) as any;
+      const dueDate: Date | undefined = project.dueDate ? new Date(project.dueDate) : undefined;
+      const daysUntilDue = dueDate && dueDate >= now ? Math.ceil((dueDate.getTime() - now.getTime()) / DAY_MS) : 0;
+      const clientObj = project.clientId && typeof project.clientId === 'object' ? project.clientId : null;
+      return {
+        context: {
+          client: clientObj ? { name: clientObj.name, email: clientObj.email } : { name: '', email: '' },
+          project: { name: project.name, dueDate: project.dueDate },
+          daysUntilDue,
+        },
+        projectId: (project._id ?? new Types.ObjectId(contextId)) as Types.ObjectId,
+        clientId: clientObj ? (clientObj._id as Types.ObjectId) : undefined,
+      };
+    }
+    if (contextType === 'client') {
+      const client = (await this.clientsService.findById(contextId)) as any;
+      return {
+        context: { client: { name: client.name, email: client.email } },
+        clientId: client._id as Types.ObjectId,
+      };
+    }
+    throw new BadRequestException(`Unsupported contextType: ${contextType}`);
   }
 
   async testSend(templateId: string, dto: TestSendDto, userId?: Types.ObjectId) {
