@@ -3,13 +3,16 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequestUser } from '../common/types/request-user.type';
@@ -27,6 +30,7 @@ import {
 import { GithubLinkDto } from './dto/github-link.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectCredentialsService } from './project-credentials.service';
+import { ProjectHandoverService } from './project-handover.service';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsService } from './projects.service';
 import { PROJECT_TEMPLATES } from './templates';
@@ -40,6 +44,7 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     private readonly tasksService: ProjectTasksService,
     private readonly credentialsService: ProjectCredentialsService,
+    private readonly handoverService: ProjectHandoverService,
   ) {}
 
   @Get('templates')
@@ -281,5 +286,15 @@ export class ProjectsController {
   @Get(':id/github/activity')
   githubActivity(@Param('id') id: string) {
     return this.projectsService.getGithubActivity(id);
+  }
+
+  // ----- Handover PDF -----
+  @Get(':id/handover.pdf')
+  @Header('Content-Type', 'application/pdf')
+  async handoverPdf(@Param('id') id: string, @Res() res: Response) {
+    const { buffer, filename } = await this.handoverService.generate(id);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', String(buffer.length));
+    res.end(buffer);
   }
 }

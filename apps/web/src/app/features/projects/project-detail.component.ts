@@ -646,6 +646,9 @@ export class ProjectDetailComponent implements OnInit {
   isGithubBusy = false;
   githubError = '';
 
+  // handover pdf
+  isGeneratingPdf = false;
+
   readonly credentialTypes = CREDENTIAL_TYPES;
 
   get credFormSpec(): CredentialTypeSpec {
@@ -718,8 +721,45 @@ export class ProjectDetailComponent implements OnInit {
         action: () => this.markAllTasksDone(),
         disabled: this.tasks.length === 0 || this.tasks.every((t) => t.status === 'done'),
       },
+      {
+        label: this.isGeneratingPdf ? 'Generating PDF…' : 'Download handover PDF',
+        action: () => this.downloadHandover(),
+        disabled: this.isGeneratingPdf,
+      },
       { label: 'Refresh', action: () => this.loadAll() },
     ];
+  }
+
+  downloadHandover() {
+    if (!this.project || this.isGeneratingPdf) return;
+    this.isGeneratingPdf = true;
+    this.projectsApi.downloadHandoverPdf(this.project._id).subscribe({
+      next: (response) => {
+        this.isGeneratingPdf = false;
+        const blob = response.body;
+        if (!blob) return;
+        const filename = this.extractFilename(response.headers.get('Content-Disposition'))
+          ?? `handover-${this.project?.name ?? 'project'}.pdf`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        this.isGeneratingPdf = false;
+        this.error = err?.error?.message ?? 'Unable to generate handover PDF';
+      },
+    });
+  }
+
+  private extractFilename(header: string | null): string | null {
+    if (!header) return null;
+    const match = /filename="?([^";]+)"?/i.exec(header);
+    return match ? match[1] : null;
   }
 
   updateStatus(status: ProjectItem['status']) {

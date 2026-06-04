@@ -176,6 +176,14 @@ export class ProjectsApiService {
     );
   }
 
+  // ----- Handover PDF -----
+  downloadHandoverPdf(id: string) {
+    return this.http.get(`${this.base}/${id}/handover.pdf`, {
+      responseType: 'blob',
+      observe: 'response',
+    });
+  }
+
   // ----- GitHub repo link -----
   linkGithub(id: string, repoUrl: string) {
     return this.http.post<{
