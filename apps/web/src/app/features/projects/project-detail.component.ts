@@ -273,7 +273,7 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
             />
             <button
               type="submit"
-              [disabled]="!newTaskTitle?.trim()"
+              [disabled]="!newTaskTitle.trim()"
               class="rounded bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-40"
             >
               + Add task
@@ -341,7 +341,7 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
             <div class="flex justify-end">
               <button
                 type="submit"
-                [disabled]="!newNoteTitle?.trim() || !newNoteBody?.trim()"
+                [disabled]="!newNoteTitle.trim() || !newNoteBody.trim()"
                 class="rounded bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-40"
               >
                 + Add note
@@ -447,7 +447,7 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
             />
             <button
               type="submit"
-              [disabled]="!newDeliverableLabel?.trim()"
+              [disabled]="!newDeliverableLabel.trim()"
               class="rounded bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-40"
             >
               + Add

@@ -256,7 +256,7 @@ type Tab = 'templates' | 'rules' | 'log';
           </button>
           <button
             class="rounded bg-slate-900 px-4 py-2 text-xs uppercase text-white"
-            [disabled]="!groupForm.name?.trim()"
+            [disabled]="!groupForm.name.trim()"
             (click)="saveGroup()"
           >
             Save
