@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApiService } from '../../core/services/accounts-api.service';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { PlannedIncomesApiService } from '../../core/services/planned-incomes-api.service';
 import { ReportsApiService } from '../../core/services/reports-api.service';
 import {
@@ -255,8 +256,17 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(item)">Edit</button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Disable</button>
+                <button class="text-xs text-slate-700 hover:text-slate-900" (click)="openEdit(item)">Edit</button>
+                <button
+                  class="ml-3 text-xs hover:underline"
+                  [ngClass]="item.isActive ? 'text-amber-700' : 'text-emerald-700'"
+                  (click)="toggleActive(item)"
+                >
+                  {{ item.isActive ? 'Disable' : 'Enable' }}
+                </button>
+                <button class="ml-3 text-xs text-rose-600 hover:text-rose-800" (click)="remove(item)">
+                  Delete
+                </button>
               </td>
             </tr>
             <tr *ngIf="plannedIncomes.length === 0">
@@ -460,6 +470,7 @@ export class PlannedIncomesComponent implements OnInit {
     private readonly reportsApi: ReportsApiService,
     private readonly accountsApi: AccountsApiService,
     private readonly categoriesApi: CategoriesApiService,
+    private readonly confirmDialog: ConfirmService,
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required]],
@@ -610,8 +621,26 @@ export class PlannedIncomesComponent implements OnInit {
     });
   }
 
-  remove(item: PlannedIncomeItem) {
+  async remove(item: PlannedIncomeItem) {
+    const confirmed = await this.confirmDialog.open({
+      title: 'Delete planned income',
+      message: `Delete "${item.name}"? Future planned occurrences will be removed. Confirmed occurrences stay intact. This cannot be undone.`,
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
     this.plannedIncomesApi.remove(item._id).subscribe({
+      next: () => {
+        this.loadPlanned();
+        this.loadMonth();
+      },
+    });
+  }
+
+  toggleActive(item: PlannedIncomeItem) {
+    this.plannedIncomesApi.update(item._id, { isActive: !item.isActive }).subscribe({
       next: () => {
         this.loadPlanned();
         this.loadMonth();
