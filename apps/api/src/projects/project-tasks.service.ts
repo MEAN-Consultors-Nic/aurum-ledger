@@ -81,76 +81,95 @@ export class ProjectTasksService {
   }
 
   /**
-   * Atomic Kanban move: places the task into a column at a given order and
-   * re-numbers every task in both the source and destination columns so
-   * ordering stays dense (0..n-1).
+   * Atomic Kanban move: writes the task's new status + order via an explicit
+   * $set, then renumbers source and destination columns so ordering stays
+   * dense (0..n-1). Uses findOneAndUpdate so we never depend on the document
+   * snapshot's dirty-tracking surviving across awaits.
    */
   async move(taskId: string, dto: MoveTaskDto, userId?: Types.ObjectId) {
-    const task = await this.taskModel.findOne({
+    const existing = await this.taskModel.findOne({
       _id: taskId,
       deletedAt: { $exists: false },
     });
-    if (!task) {
+    if (!existing) {
       throw new NotFoundException('Task not found');
     }
 
-    const fromStatus = task.status;
-    const projectId = task.projectId;
+    const fromStatus = existing.status;
     const toStatus = dto.status;
+    const projectId = existing.projectId;
 
-    // Snapshot every task in both columns we're touching.
-    const sourceTasks =
-      fromStatus === toStatus
-        ? []
-        : await this.taskModel
-            .find({
-              projectId,
-              status: fromStatus,
-              deletedAt: { $exists: false },
-              _id: { $ne: task._id },
-            })
-            .sort({ order: 1, createdAt: 1 });
-
+    // Pull the destination column (excluding the task we're moving) so we
+    // can clamp the requested index.
     const destTasks = await this.taskModel
       .find({
         projectId,
         status: toStatus,
         deletedAt: { $exists: false },
-        _id: { $ne: task._id },
+        _id: { $ne: existing._id },
       })
       .sort({ order: 1, createdAt: 1 });
 
     const clampedIndex = Math.max(0, Math.min(dto.order, destTasks.length));
-    const newDest = [...destTasks];
-    newDest.splice(clampedIndex, 0, task);
 
-    // Apply: update the moved task itself (status + order + audit fields)
-    // and re-number the source/dest columns.
-    const writes: Promise<unknown>[] = [];
-    task.status = toStatus;
-    task.order = clampedIndex;
-    task.updatedBy = userId;
+    // ---- The move itself: explicit atomic $set ----
+    const setFields: Record<string, unknown> = {
+      status: toStatus,
+      order: clampedIndex,
+      updatedBy: userId,
+    };
+    const unsetFields: Record<string, unknown> = {};
     if (toStatus === 'done' && fromStatus !== 'done') {
-      task.completedAt = new Date();
+      setFields.completedAt = new Date();
     } else if (toStatus !== 'done') {
-      task.completedAt = undefined;
+      unsetFields.completedAt = 1;
     }
-    writes.push(task.save());
 
+    const update: Record<string, unknown> = { $set: setFields };
+    if (Object.keys(unsetFields).length > 0) {
+      update.$unset = unsetFields;
+    }
+
+    const moved = await this.taskModel.findOneAndUpdate(
+      { _id: taskId, deletedAt: { $exists: false } },
+      update,
+      { new: true },
+    );
+    if (!moved) {
+      throw new NotFoundException('Task not found after move');
+    }
+
+    // ---- Renumber columns to keep ordering dense ----
+    const reorderPromises: Promise<unknown>[] = [];
+    const newDest = [...destTasks];
+    newDest.splice(clampedIndex, 0, moved);
     newDest.forEach((t, idx) => {
-      if (t._id.equals(task._id)) return; // already saved above
+      if (t._id.equals(moved._id)) return; // already at clampedIndex via $set above
       if (t.order !== idx) {
-        writes.push(this.taskModel.updateOne({ _id: t._id }, { $set: { order: idx } }));
+        reorderPromises.push(
+          this.taskModel.updateOne({ _id: t._id }, { $set: { order: idx } }),
+        );
       }
     });
-    sourceTasks.forEach((t, idx) => {
-      if (t.order !== idx) {
-        writes.push(this.taskModel.updateOne({ _id: t._id }, { $set: { order: idx } }));
-      }
-    });
-
-    await Promise.all(writes);
-    return task;
+    if (fromStatus !== toStatus) {
+      const sourceTasks = await this.taskModel
+        .find({
+          projectId,
+          status: fromStatus,
+          deletedAt: { $exists: false },
+          _id: { $ne: moved._id },
+        })
+        .sort({ order: 1, createdAt: 1 });
+      sourceTasks.forEach((t, idx) => {
+        if (t.order !== idx) {
+          reorderPromises.push(
+            this.taskModel.updateOne({ _id: t._id }, { $set: { order: idx } }),
+          );
+        }
+      });
+    }
+    await Promise.all(reorderPromises);
+    return moved;
   }
 
   async remove(taskId: string, userId?: Types.ObjectId) {

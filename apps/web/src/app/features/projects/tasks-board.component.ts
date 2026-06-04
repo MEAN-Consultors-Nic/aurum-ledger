@@ -101,8 +101,10 @@ const COLUMNS: Column[] = [
               *ngFor="let task of buckets[col.key]; trackBy: trackById"
               cdkDrag
               [cdkDragData]="task"
+              (cdkDragStarted)="onDragStarted()"
+              (cdkDragEnded)="onDragEnded()"
               (click)="open(task)"
-              class="cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow active:cursor-grabbing"
+              class="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow"
             >
               <!-- Tags -->
               <div *ngIf="task.tags?.length" class="flex flex-wrap gap-1">
@@ -221,7 +223,21 @@ export class TasksBoardComponent implements OnChanges {
   // Slide-over
   selectedTask: ProjectTask | null = null;
 
+  // Drag-vs-click discriminator. CDK still bubbles the click after a drag,
+  // so we suppress the next click for a short window after a real drag.
+  private suppressClickUntil = 0;
+
   constructor(private readonly projectsApi: ProjectsApiService) {}
+
+  onDragStarted() {
+    this.suppressClickUntil = Date.now() + 300;
+  }
+
+  onDragEnded() {
+    // Extend the window so the click event fired right after release is
+    // still suppressed.
+    this.suppressClickUntil = Date.now() + 300;
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['tasks']) {
@@ -309,6 +325,7 @@ export class TasksBoardComponent implements OnChanges {
   }
 
   open(task: ProjectTask) {
+    if (Date.now() < this.suppressClickUntil) return;
     this.selectedTask = task;
   }
 
