@@ -283,21 +283,32 @@ export class TasksBoardComponent implements OnChanges {
 
     const moved = this.buckets[toCol][event.currentIndex];
     if (!moved) return;
+    const originalStatus = moved.status;
+    const originalOrder = moved.order;
     moved.status = toCol;
+    moved.order = event.currentIndex;
 
     this.projectsApi
       .moveTask(this.projectId, moved._id, { status: toCol, order: event.currentIndex })
       .subscribe({
-        next: () => {
-          // Re-number locally so dragging the next task feels right immediately.
+        next: (updated) => {
+          // Adopt server-canonical values onto the same task object so
+          // anything else referencing it sees the persisted state.
+          Object.assign(moved, updated);
+          // Re-number locally so the next drag computes correctly.
           this.buckets[toCol].forEach((t, idx) => (t.order = idx));
           if (fromCol !== toCol) {
             this.buckets[fromCol].forEach((t, idx) => (t.order = idx));
           }
         },
-        error: () => {
-          // On failure, restore by reading the original tasks. Cheap & safe.
+        error: (err) => {
+          // Restore the mutated status BEFORE rebuilding — otherwise
+          // rebuildBuckets() would re-place the card in the destination
+          // column it just came from.
+          moved.status = originalStatus;
+          moved.order = originalOrder;
           this.rebuildBuckets();
+          console.error('[tasks-board] move failed:', err);
         },
       });
   }

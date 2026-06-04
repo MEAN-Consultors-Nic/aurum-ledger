@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -12,6 +12,8 @@ import { ProjectTask, ProjectTaskDocument } from './schemas/project-task.schema'
 
 @Injectable()
 export class ProjectTasksService {
+  private readonly logger = new Logger(ProjectTasksService.name);
+
   constructor(
     @InjectModel(ProjectTask.name) private readonly taskModel: Model<ProjectTaskDocument>,
   ) {}
@@ -87,17 +89,22 @@ export class ProjectTasksService {
    * snapshot's dirty-tracking surviving across awaits.
    */
   async move(taskId: string, dto: MoveTaskDto, userId?: Types.ObjectId) {
+    this.logger.log(
+      `move() in: taskId=${taskId} status=${dto.status} order=${dto.order}`,
+    );
     const existing = await this.taskModel.findOne({
       _id: taskId,
       deletedAt: { $exists: false },
     });
     if (!existing) {
+      this.logger.warn(`move(): task ${taskId} not found`);
       throw new NotFoundException('Task not found');
     }
 
     const fromStatus = existing.status;
     const toStatus = dto.status;
     const projectId = existing.projectId;
+    this.logger.log(`move(): fromStatus=${fromStatus} toStatus=${toStatus}`);
 
     // Pull the destination column (excluding the task we're moving) so we
     // can clamp the requested index.
@@ -138,6 +145,12 @@ export class ProjectTasksService {
     if (!moved) {
       throw new NotFoundException('Task not found after move');
     }
+    this.logger.log(
+      `move(): persisted task ${taskId} now status=${moved.status} order=${moved.order}`,
+    );
+    // Verification read — confirms what's actually on disk.
+    const verify = await this.taskModel.findById(taskId).lean();
+    this.logger.log(`move(): verify read status=${verify?.status} order=${verify?.order}`);
 
     // ---- Renumber columns to keep ordering dense ----
     const reorderPromises: Promise<unknown>[] = [];
