@@ -5,6 +5,57 @@ import { AuthService } from '../core/services/auth.service';
 import { NotificationsApiService } from '../core/services/notifications-api.service';
 import { ConfirmDialogComponent } from '../shared/confirm-dialog/confirm-dialog.component';
 
+type NavItem = { label: string; path: string };
+type NavGroup = { key: string; label: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    key: 'sales',
+    label: 'Sales',
+    items: [
+      { label: 'Clients', path: '/clients' },
+      { label: 'Services', path: '/services' },
+      { label: 'Estimates', path: '/estimates' },
+      { label: 'Contracts', path: '/contracts' },
+      { label: 'Projects', path: '/projects' },
+      { label: 'Payments', path: '/payments' },
+    ],
+  },
+  {
+    key: 'finance',
+    label: 'Finance',
+    items: [
+      { label: 'Accounts', path: '/accounts' },
+      { label: 'Categories', path: '/categories' },
+      { label: 'Transactions', path: '/transactions' },
+      { label: 'Budgets', path: '/budgets' },
+      { label: 'Summary', path: '/finance' },
+      { label: 'Planned income', path: '/planned-income' },
+      { label: 'Recurring expenses', path: '/recurring-expenses' },
+      { label: 'Loans', path: '/loans' },
+      { label: 'Subscriptions', path: '/subscriptions' },
+    ],
+  },
+  {
+    key: 'insights',
+    label: 'Insights',
+    items: [{ label: 'Reports', path: '/reports' }],
+  },
+  {
+    key: 'admin',
+    label: 'Admin',
+    items: [
+      { label: 'Users', path: '/users' },
+      { label: 'Notification center', path: '/notification-center' },
+      { label: 'Reconcile', path: '/reconcile' },
+      { label: 'Import', path: '/imports' },
+      { label: 'Settings', path: '/settings' },
+    ],
+  },
+];
+
+const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
+
 @Component({
   selector: 'app-layout',
   standalone: true,
@@ -25,31 +76,56 @@ import { ConfirmDialogComponent } from '../shared/confirm-dialog/confirm-dialog.
           <div class="mt-6 text-xs uppercase tracking-[0.2em] text-slate-400">
             MEAN Consultors
           </div>
-          <nav class="mt-8 space-y-2 text-sm">
-            <a routerLink="/dashboard" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Dashboard</a>
-            <a routerLink="/notifications" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Notifications</a>
-            <a routerLink="/clients" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Clients</a>
-            <a routerLink="/services" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Services</a>
-            <a routerLink="/estimates" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Estimates</a>
-            <a routerLink="/contracts" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Contracts</a>
-            <a routerLink="/projects" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Projects</a>
-            <a routerLink="/payments" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Payments</a>
-            <a routerLink="/reports" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Reports</a>
-            <a routerLink="/imports" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Import</a>
-            <a routerLink="/users" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Users</a>
-            <div class="pt-4 text-xs uppercase tracking-[0.2em] text-slate-500">Finance</div>
-            <a routerLink="/accounts" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Accounts</a>
-            <a routerLink="/categories" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Categories</a>
-            <a routerLink="/transactions" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Transactions</a>
-            <a routerLink="/budgets" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Budgets</a>
-            <a routerLink="/finance" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Summary</a>
-            <a routerLink="/planned-income" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Planned income</a>
-            <a routerLink="/recurring-expenses" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Recurring expenses</a>
-            <a routerLink="/loans" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Loans</a>
-            <a routerLink="/subscriptions" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Subscriptions</a>
-            <a routerLink="/notification-center" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Notification center</a>
-            <a routerLink="/reconcile" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Reconcile</a>
-            <a routerLink="/settings" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Settings</a>
+
+          <nav class="mt-6 space-y-1 text-sm">
+            <!-- Standalone top links -->
+            <a
+              routerLink="/dashboard"
+              routerLinkActive="bg-slate-800 text-white"
+              class="flex items-center rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+            >
+              Dashboard
+            </a>
+            <a
+              routerLink="/notifications"
+              routerLinkActive="bg-slate-800 text-white"
+              class="flex items-center justify-between rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+            >
+              <span>Alerts</span>
+              <span
+                *ngIf="alertCount > 0"
+                class="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
+              >{{ alertCount }}</span>
+            </a>
+
+            <!-- Grouped sections -->
+            <div *ngFor="let group of navGroups" class="pt-3">
+              <button
+                type="button"
+                (click)="toggleGroup(group.key)"
+                class="flex w-full items-center justify-between rounded px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 transition hover:text-white"
+              >
+                <span>{{ group.label }}</span>
+                <svg
+                  class="h-3 w-3 transition-transform"
+                  [class.rotate-90]="isGroupOpen(group.key)"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                >
+                  <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </button>
+              <div *ngIf="isGroupOpen(group.key)" class="mt-1 space-y-1">
+                <a
+                  *ngFor="let item of group.items"
+                  [routerLink]="item.path"
+                  routerLinkActive="bg-slate-800 text-white"
+                  class="block rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+                >
+                  {{ item.label }}
+                </a>
+              </div>
+            </div>
           </nav>
         </aside>
         <main class="flex-1">
@@ -99,11 +175,34 @@ export class LayoutComponent implements OnInit {
   isMobileNavOpen = false;
   alertCount = 0;
 
+  navGroups = NAV_GROUPS;
+  private collapsed = new Set<string>();
+
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router,
     private readonly notificationsApi: NotificationsApiService,
-  ) {}
+  ) {
+    // Restore collapse state from localStorage (default: all open).
+    try {
+      const raw = localStorage.getItem(NAV_STATE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        if (Array.isArray(arr)) {
+          this.collapsed = new Set(arr);
+        }
+      }
+    } catch {
+      // ignore — fallback to all open
+    }
+    // Auto-expand whichever group contains the current route.
+    const currentPath = this.router.url;
+    for (const group of NAV_GROUPS) {
+      if (group.items.some((i) => currentPath.startsWith(i.path))) {
+        this.collapsed.delete(group.key);
+      }
+    }
+  }
 
   ngOnInit() {
     this.notificationsApi.getNotifications().subscribe({
@@ -119,6 +218,27 @@ export class LayoutComponent implements OnInit {
         this.alertCount = 0;
       },
     });
+  }
+
+  isGroupOpen(key: string) {
+    return !this.collapsed.has(key);
+  }
+
+  toggleGroup(key: string) {
+    if (this.collapsed.has(key)) {
+      this.collapsed.delete(key);
+    } else {
+      this.collapsed.add(key);
+    }
+    this.persistState();
+  }
+
+  private persistState() {
+    try {
+      localStorage.setItem(NAV_STATE_KEY, JSON.stringify(Array.from(this.collapsed)));
+    } catch {
+      // ignore
+    }
   }
 
   get userName() {
