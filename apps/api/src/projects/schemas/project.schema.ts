@@ -118,6 +118,25 @@ export class Project {
 
   @Prop()
   shareLastViewedAt?: Date;
+
+  // ----- GitHub repo link -----
+  @Prop({
+    type: {
+      owner: { type: String },
+      name: { type: String },
+      htmlUrl: { type: String },
+      createdAt: { type: Date },
+      linkedAt: { type: Date },
+    },
+    _id: false,
+  })
+  githubRepo?: {
+    owner: string;
+    name: string;
+    htmlUrl: string;
+    createdAt?: Date;
+    linkedAt: Date;
+  };
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);

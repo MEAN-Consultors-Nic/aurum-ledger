@@ -45,4 +45,9 @@ export class ConvertEstimateDto {
   @IsOptional()
   @IsBoolean()
   createProject?: boolean;
+
+  // When true, also create a GitHub repo for the spawned project.
+  @IsOptional()
+  @IsBoolean()
+  createGithubRepo?: boolean;
 }

@@ -55,6 +55,13 @@ export type ProjectItem = {
   shareRevokedAt?: string;
   shareViewCount?: number;
   shareLastViewedAt?: string;
+  githubRepo?: {
+    owner: string;
+    name: string;
+    htmlUrl: string;
+    createdAt?: string;
+    linkedAt?: string;
+  };
 };
 
 export type ProjectTask = {

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CredentialCipher } from '../common/crypto/credential-cipher';
+import { GithubModule } from '../github/github.module';
+import { SettingsModule } from '../settings/settings.module';
 import { ProjectCredentialsService } from './project-credentials.service';
 import { ProjectTasksService } from './project-tasks.service';
 import { ProjectsController } from './projects.controller';
@@ -19,6 +21,8 @@ import { ProjectTask, ProjectTaskSchema } from './schemas/project-task.schema';
       { name: ProjectTask.name, schema: ProjectTaskSchema },
       { name: ProjectCredential.name, schema: ProjectCredentialSchema },
     ]),
+    GithubModule,
+    SettingsModule,
   ],
   controllers: [ProjectsController],
   providers: [

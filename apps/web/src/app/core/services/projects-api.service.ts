@@ -9,6 +9,34 @@ import {
   ProjectTemplateSummary,
 } from '../models/project.model';
 
+export type GithubCommit = {
+  sha: string;
+  shortSha: string;
+  message: string;
+  authorName: string;
+  authorAvatar?: string;
+  url: string;
+  date: string;
+};
+
+export type GithubPullRequest = {
+  number: number;
+  title: string;
+  authorName: string;
+  state: 'open' | 'closed';
+  draft: boolean;
+  url: string;
+  updatedAt: string;
+};
+
+export type GithubActivityResponse = {
+  commits: GithubCommit[];
+  pullRequests: GithubPullRequest[];
+  repoHtmlUrl: string;
+  defaultBranch?: string;
+  visibility?: 'public' | 'private' | 'internal';
+};
+
 @Injectable({ providedIn: 'root' })
 export class ProjectsApiService {
   private readonly base = `${environment.apiUrl}/projects`;
@@ -120,6 +148,24 @@ export class ProjectsApiService {
     return this.http.delete<{ _id: string; deleted: boolean }>(
       `${this.base}/${id}/credentials/${credentialId}`,
     );
+  }
+
+  // ----- GitHub repo link -----
+  linkGithub(id: string, repoUrl: string) {
+    return this.http.post<{
+      owner: string;
+      name: string;
+      htmlUrl: string;
+      linkedAt: string;
+    }>(`${this.base}/${id}/github/link`, { repoUrl });
+  }
+
+  unlinkGithub(id: string) {
+    return this.http.delete<{ unlinked: boolean }>(`${this.base}/${id}/github/link`);
+  }
+
+  githubActivity(id: string) {
+    return this.http.get<GithubActivityResponse>(`${this.base}/${id}/github/activity`);
   }
 
   // ----- Client-portal share link -----

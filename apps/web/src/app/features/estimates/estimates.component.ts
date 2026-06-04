@@ -1,10 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ClientsApiService } from '../../core/services/clients-api.service';
 import { EstimatesApiService } from '../../core/services/estimates-api.service';
 import { ServicesApiService } from '../../core/services/services-api.service';
+import { GithubSettings, SettingsApiService } from '../../core/services/settings-api.service';
 import { ClientItem } from '../../core/models/client.model';
 import { EstimateItem } from '../../core/models/estimate.model';
 import { ServiceItem } from '../../core/models/service.model';
@@ -21,6 +22,7 @@ import {
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
+    RouterLink,
     ActionMenuComponent,
     SendNotificationDialogComponent,
   ],
@@ -384,6 +386,37 @@ import {
             </div>
           </label>
 
+          <label
+            class="flex items-start gap-3 rounded-lg border px-3 py-2.5"
+            [ngClass]="githubSettings?.hasToken
+              ? 'border-slate-200 bg-slate-50'
+              : 'border-dashed border-slate-200 bg-slate-50/60'"
+          >
+            <input
+              type="checkbox"
+              formControlName="createGithubRepo"
+              class="mt-0.5 h-4 w-4 rounded border-slate-300"
+              [disabled]="!githubSettings?.hasToken || convertForm.value.createProject === false"
+            />
+            <div>
+              <div class="flex items-center gap-2 text-sm font-medium text-slate-900">
+                Create GitHub repo
+                <span *ngIf="!githubSettings?.hasToken"
+                  class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                  Not configured
+                </span>
+              </div>
+              <div class="text-xs text-slate-500">
+                <ng-container *ngIf="githubSettings?.hasToken">
+                  Spawns a private repo named <code>mean-&#123;client&#125;-&#123;project&#125;</code>{{ githubSettings?.org ? ' in ' + githubSettings?.org : '' }}. Requires the linked project (above).
+                </ng-container>
+                <ng-container *ngIf="!githubSettings?.hasToken">
+                  Add a Personal Access Token in <a routerLink="/settings" class="underline">Settings → GitHub</a> to enable this.
+                </ng-container>
+              </div>
+            </div>
+          </label>
+
           <div *ngIf="convertError" class="text-sm text-red-600">{{ convertError }}</div>
 
           <div class="flex justify-end gap-3">
@@ -476,11 +509,15 @@ export class EstimatesComponent implements OnInit {
   isSendNotifOpen = false;
   sendNotifConfig: SendNotificationConfig | null = null;
 
+  // GitHub settings (drives convert-dialog checkbox)
+  githubSettings: GithubSettings | null = null;
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly estimatesApi: EstimatesApiService,
     private readonly clientsApi: ClientsApiService,
     private readonly servicesApi: ServicesApiService,
+    private readonly settingsApi: SettingsApiService,
     private readonly router: Router,
   ) {
     this.form = this.fb.group({
@@ -505,12 +542,23 @@ export class EstimatesComponent implements OnInit {
       contractNotes: [''],
       conversionNotes: [''],
       createProject: [true],
+      createGithubRepo: [false],
     });
   }
 
   ngOnInit() {
     this.load();
     this.loadReferences();
+    this.loadGithubSettings();
+  }
+
+  private loadGithubSettings() {
+    this.settingsApi.getGithub().subscribe({
+      next: (data) => (this.githubSettings = data),
+      error: () => {
+        this.githubSettings = { org: '', autoCreate: false, defaultPrivate: true, hasToken: false };
+      },
+    });
   }
 
   loadReferences() {
@@ -703,6 +751,7 @@ export class EstimatesComponent implements OnInit {
   openConvert(item: EstimateItem) {
     this.converting = item;
     this.convertError = '';
+    const githubDefault = !!(this.githubSettings?.hasToken && this.githubSettings?.autoCreate);
     this.convertForm.reset({
       amount: item.amount,
       billingPeriod: item.billingPeriod,
@@ -711,6 +760,7 @@ export class EstimatesComponent implements OnInit {
       contractNotes: item.notes ?? '',
       conversionNotes: '',
       createProject: true,
+      createGithubRepo: githubDefault,
     });
     this.isConvertOpen = true;
   }
@@ -785,6 +835,7 @@ export class EstimatesComponent implements OnInit {
       contractNotes: this.convertForm.value.contractNotes || undefined,
       conversionNotes: this.convertForm.value.conversionNotes || undefined,
       createProject: this.convertForm.value.createProject !== false,
+      createGithubRepo: !!this.convertForm.value.createGithubRepo,
     };
 
     this.estimatesApi.convert(this.converting._id, payload).subscribe({

@@ -162,6 +162,7 @@ export class EstimatesService {
         endDate: dto.endDate,
         notes: contractNotes,
         createProject: dto.createProject,
+        createGithubRepo: dto.createGithubRepo,
       },
       userId,
     );

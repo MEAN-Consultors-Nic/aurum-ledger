@@ -54,4 +54,10 @@ export class CreateContractDto {
   @IsOptional()
   @IsBoolean()
   createProject?: boolean;
+
+  // When true, also create a GitHub repo for the spawned project.
+  // Defaults to the GitHub auto-create setting when omitted.
+  @IsOptional()
+  @IsBoolean()
+  createGithubRepo?: boolean;
 }

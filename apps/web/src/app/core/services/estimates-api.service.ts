@@ -64,6 +64,7 @@ export class EstimatesApiService {
     contractNotes?: string;
     conversionNotes?: string;
     createProject?: boolean;
+    createGithubRepo?: boolean;
   }) {
     return this.http.post<EstimateConvertResponse>(`${environment.apiUrl}/estimates/${id}/convert`, payload);
   }

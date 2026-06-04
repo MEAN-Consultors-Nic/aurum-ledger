@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequestUser } from '../common/types/request-user.type';
+import { UpdateGithubSettingsDto } from './dto/github-settings.dto';
 import { UpdateSettingDto } from './dto/update-setting.dto';
 import { SettingsService } from './settings.service';
 
@@ -16,6 +17,21 @@ export class SettingsController {
   @Get()
   findAll() {
     return this.settingsService.getAll();
+  }
+
+  // ----- GitHub (dedicated, token-aware) -----
+  // Must come before /:key so 'github' isn't treated as a key lookup.
+  @Get('github')
+  getGithub() {
+    return this.settingsService.getGithubSettings();
+  }
+
+  @Put('github')
+  updateGithub(
+    @Body() dto: UpdateGithubSettingsDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.settingsService.updateGithubSettings(dto, user?._id?.toString());
   }
 
   @Get(':key')

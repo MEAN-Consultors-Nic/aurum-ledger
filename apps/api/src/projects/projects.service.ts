@@ -1,7 +1,9 @@
 import { randomBytes } from 'crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { GithubService } from '../github/github.service';
+import { SettingsService } from '../settings/settings.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { CreateNoteDto, UpdateNoteDto } from './dto/note.dto';
@@ -21,18 +23,24 @@ type CreateFromContractInput = {
   serviceId?: Types.ObjectId;
   contractTitle?: string;
   serviceName?: string;
+  clientName?: string;
   startDate?: Date;
   endDate?: Date;
+  createGithubRepo?: boolean;
   userId?: Types.ObjectId;
 };
 
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     @InjectModel(Project.name) private readonly projectModel: Model<ProjectDocument>,
     @InjectModel(ProjectTask.name) private readonly taskModel: Model<ProjectTaskDocument>,
     @InjectModel(ProjectCredential.name)
     private readonly credentialModel: Model<ProjectCredentialDocument>,
+    private readonly githubService: GithubService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async list(filter: { status?: string; clientId?: string; search?: string } = {}) {
@@ -160,7 +168,46 @@ export class ProjectsService {
       );
     }
 
+    // Best-effort GitHub repo creation. Failures must not block the
+    // project / contract conversion — log and continue.
+    const wantsRepo = await this.shouldAutoCreateRepo(input.createGithubRepo);
+    if (wantsRepo) {
+      try {
+        const slug = this.buildRepoSlug(input.clientName, name);
+        const repo = await this.githubService.createRepository({
+          name: slug,
+          description: `${name} — ${input.clientName ?? 'AurumLedger project'}`,
+        });
+        project.githubRepo = {
+          owner: repo.owner,
+          name: repo.name,
+          htmlUrl: repo.htmlUrl,
+          createdAt: new Date(repo.createdAt),
+          linkedAt: new Date(),
+        };
+        await project.save();
+      } catch (err) {
+        const msg = (err as Error)?.message ?? 'unknown error';
+        this.logger.warn(`GitHub repo creation skipped for project ${project._id}: ${msg}`);
+      }
+    }
+
     return project;
+  }
+
+  private async shouldAutoCreateRepo(explicit?: boolean): Promise<boolean> {
+    if (explicit === false) return false;
+    if (!(await this.githubService.isConfigured())) return false;
+    if (explicit === true) return true;
+    const settings = await this.settingsService.getGithubSettings();
+    return settings.autoCreate;
+  }
+
+  private buildRepoSlug(clientName: string | undefined, projectName: string): string {
+    const client = this.githubService.slug(clientName ?? '');
+    const proj = this.githubService.slug(projectName);
+    const parts = ['mean', client, proj].filter((p) => p.length > 0);
+    return parts.join('-');
   }
 
   async update(id: string, dto: UpdateProjectDto, userId?: Types.ObjectId) {
@@ -374,6 +421,48 @@ export class ProjectsService {
       .find({ projectId: project._id, deletedAt: { $exists: false } })
       .sort({ status: 1, order: 1 });
     return { project, tasks };
+  }
+
+  // ------------------------------------------------------------
+  // GitHub repo link
+  // ------------------------------------------------------------
+
+  async linkGithubRepo(id: string, repoUrl: string, userId?: Types.ObjectId) {
+    const ref = this.githubService.parseRepoRef(repoUrl);
+    if (!ref) {
+      throw new BadRequestException(
+        'Provide a valid GitHub repo URL (https://github.com/owner/name) or "owner/name".',
+      );
+    }
+    const project = await this.requireActive(id);
+    project.githubRepo = {
+      owner: ref.owner,
+      name: ref.name,
+      htmlUrl: `https://github.com/${ref.owner}/${ref.name}`,
+      linkedAt: new Date(),
+    };
+    project.updatedBy = userId;
+    await project.save();
+    return project.githubRepo;
+  }
+
+  async unlinkGithubRepo(id: string, userId?: Types.ObjectId) {
+    const project = await this.requireActive(id);
+    project.githubRepo = undefined;
+    project.updatedBy = userId;
+    await project.save();
+    return { unlinked: true };
+  }
+
+  async getGithubActivity(id: string) {
+    const project = await this.requireActive(id);
+    if (!project.githubRepo) {
+      throw new BadRequestException('No GitHub repo linked to this project.');
+    }
+    return this.githubService.getActivity(
+      project.githubRepo.owner,
+      project.githubRepo.name,
+    );
   }
 
   // ---------- helpers ----------

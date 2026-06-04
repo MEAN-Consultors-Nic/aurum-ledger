@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, SortOrder, Types } from 'mongoose';
+import { ClientsService } from '../clients/clients.service';
 import { ProjectsService } from '../projects/projects.service';
 import { ServicesService } from '../services/services.service';
 import { CreateContractDto } from './dto/create-contract.dto';
@@ -17,12 +18,13 @@ export class ContractsService {
     @InjectModel(Contract.name) private readonly contractModel: Model<ContractDocument>,
     private readonly projectsService: ProjectsService,
     private readonly servicesService: ServicesService,
+    private readonly clientsService: ClientsService,
   ) {}
 
   async create(dto: CreateContractDto, userId?: Types.ObjectId) {
     this.validateDates(dto.billingPeriod, dto.startDate, dto.endDate);
 
-    const { createProject, ...contractFields } = dto;
+    const { createProject, createGithubRepo, ...contractFields } = dto;
     const shouldCreateProject = createProject !== false; // default true
 
     const contract = await this.contractModel.create({
@@ -40,7 +42,7 @@ export class ContractsService {
     });
 
     if (contract.status === 'active' && shouldCreateProject) {
-      this.spawnProjectFor(contract, userId).catch((err) => {
+      this.spawnProjectFor(contract, createGithubRepo, userId).catch((err) => {
         this.logger.error(`Failed to spawn project for contract ${contract._id}: ${err.message}`);
       });
     }
@@ -48,13 +50,24 @@ export class ContractsService {
     return contract;
   }
 
-  private async spawnProjectFor(contract: ContractDocument, userId?: Types.ObjectId) {
+  private async spawnProjectFor(
+    contract: ContractDocument,
+    createGithubRepo: boolean | undefined,
+    userId?: Types.ObjectId,
+  ) {
     let serviceName: string | undefined;
+    let clientName: string | undefined;
     try {
       const service = await this.servicesService.findById(contract.serviceId.toString());
       serviceName = service?.name;
     } catch {
       // service lookup is best-effort; project still gets created without it
+    }
+    try {
+      const client = await this.clientsService.findById(contract.clientId.toString());
+      clientName = client?.name;
+    } catch {
+      // best-effort
     }
     await this.projectsService.createFromContract({
       contractId: contract._id as Types.ObjectId,
@@ -62,8 +75,10 @@ export class ContractsService {
       serviceId: contract.serviceId,
       contractTitle: contract.title,
       serviceName,
+      clientName,
       startDate: contract.startDate,
       endDate: contract.endDate,
+      createGithubRepo,
       userId,
     });
   }

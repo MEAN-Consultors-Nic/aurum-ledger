@@ -15,6 +15,7 @@ import {
 } from '../../core/models/project.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
+import { GithubPanelComponent, GithubRepoLink } from '../../shared/github-panel/github-panel.component';
 
 type Tab = 'overview' | 'tasks' | 'notes' | 'credentials' | 'deliverables';
 
@@ -146,6 +147,7 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
     RouterLink,
     ActionMenuComponent,
     SharePanelComponent,
+    GithubPanelComponent,
   ],
   template: `
     <div *ngIf="isLoading" class="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -503,6 +505,16 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
         (generate)="generateShare()"
         (revoke)="revokeShare()"
       />
+
+      <!-- GitHub repo -->
+      <app-github-panel
+        [projectId]="projectId"
+        [repo]="project.githubRepo ?? null"
+        [busy]="isGithubBusy"
+        [linkError]="githubError"
+        (link)="linkGithub($event)"
+        (unlink)="unlinkGithub()"
+      />
     </div>
 
     <!-- Credential modal -->
@@ -697,6 +709,10 @@ export class ProjectDetailComponent implements OnInit {
   // share panel
   shareState: SharePanelState | null = null;
   isSharing = false;
+
+  // github
+  isGithubBusy = false;
+  githubError = '';
 
   readonly credentialTypes = CREDENTIAL_TYPES;
 
@@ -1200,6 +1216,46 @@ export class ProjectDetailComponent implements OnInit {
       error: () => {
         this.isSharing = false;
         this.error = 'Unable to revoke share link';
+      },
+    });
+  }
+
+  // ----- github -----
+  linkGithub(repoUrl: string) {
+    if (!this.projectId || !this.project) return;
+    this.isGithubBusy = true;
+    this.githubError = '';
+    this.projectsApi.linkGithub(this.projectId, repoUrl).subscribe({
+      next: (repo) => {
+        if (this.project) {
+          this.project = {
+            ...this.project,
+            githubRepo: { ...repo, linkedAt: repo.linkedAt },
+          };
+        }
+        this.isGithubBusy = false;
+      },
+      error: (err) => {
+        this.isGithubBusy = false;
+        this.githubError = err?.error?.message ?? 'Unable to link repo';
+      },
+    });
+  }
+
+  unlinkGithub() {
+    if (!this.projectId || !this.project) return;
+    this.isGithubBusy = true;
+    this.githubError = '';
+    this.projectsApi.unlinkGithub(this.projectId).subscribe({
+      next: () => {
+        if (this.project) {
+          this.project = { ...this.project, githubRepo: undefined };
+        }
+        this.isGithubBusy = false;
+      },
+      error: () => {
+        this.isGithubBusy = false;
+        this.githubError = 'Unable to unlink repo';
       },
     });
   }

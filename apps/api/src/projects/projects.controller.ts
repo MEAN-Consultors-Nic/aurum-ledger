@@ -18,6 +18,7 @@ import { CreateDeliverableDto, UpdateDeliverableDto } from './dto/deliverable.dt
 import { CreateNoteDto, UpdateNoteDto } from './dto/note.dto';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
+import { GithubLinkDto } from './dto/github-link.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectCredentialsService } from './project-credentials.service';
 import { ProjectTasksService } from './project-tasks.service';
@@ -216,5 +217,25 @@ export class ProjectsController {
   @Delete(':id/share')
   revokeShare(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.projectsService.revokeShareToken(id, user?._id);
+  }
+
+  // ----- GitHub repo link -----
+  @Post(':id/github/link')
+  linkGithub(
+    @Param('id') id: string,
+    @Body() dto: GithubLinkDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.projectsService.linkGithubRepo(id, dto.repoUrl, user?._id);
+  }
+
+  @Delete(':id/github/link')
+  unlinkGithub(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.projectsService.unlinkGithubRepo(id, user?._id);
+  }
+
+  @Get(':id/github/activity')
+  githubActivity(@Param('id') id: string) {
+    return this.projectsService.getGithubActivity(id);
   }
 }
