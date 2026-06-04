@@ -16,6 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MailerModule } from './mailer/mailer.module';
 import { NotificationsEngineModule } from './notifications-engine/notifications-engine.module';
+import { ReconcileModule } from './reconcile/reconcile.module';
 import { PlannedIncomesModule } from './planned-incomes/planned-incomes.module';
 import { ProjectsModule } from './projects/projects.module';
 import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses.module';
@@ -78,6 +79,7 @@ import { UsersModule } from './users/users.module';
     ProjectsModule,
     MailerModule,
     NotificationsEngineModule,
+    ReconcileModule,
   ],
   controllers: [AppController],
 })

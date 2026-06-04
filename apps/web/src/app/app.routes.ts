@@ -20,6 +20,7 @@ import { CategoriesComponent } from './features/categories/categories.component'
 import { TransactionsComponent } from './features/transactions/transactions.component';
 import { BudgetsComponent } from './features/budgets/budgets.component';
 import { FinanceComponent } from './features/finance/finance.component';
+import { ReconcileComponent } from './features/reconcile/reconcile.component';
 import { SettingsComponent } from './features/settings/settings.component';
 import { PlannedIncomesComponent } from './features/planned-incomes/planned-incomes.component';
 import { NotificationsComponent } from './features/notifications/notifications.component';
@@ -63,6 +64,7 @@ export const routes: Routes = [
       { path: 'notification-center', component: NotificationCenterComponent },
       { path: 'notification-center/templates/new', component: TemplateEditorComponent },
       { path: 'notification-center/templates/:id', component: TemplateEditorComponent },
+      { path: 'reconcile', component: ReconcileComponent, canActivate: [adminGuard] },
       { path: 'settings', component: SettingsComponent },
     ],
   },

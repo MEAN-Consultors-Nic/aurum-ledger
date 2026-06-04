@@ -48,6 +48,7 @@ import { ConfirmDialogComponent } from '../shared/confirm-dialog/confirm-dialog.
             <a routerLink="/loans" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Loans</a>
             <a routerLink="/subscriptions" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Subscriptions</a>
             <a routerLink="/notification-center" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Notification center</a>
+            <a routerLink="/reconcile" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Reconcile</a>
             <a routerLink="/settings" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Settings</a>
           </nav>
         </aside>
