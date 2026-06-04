@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { AssetsModule } from './assets/assets.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ClientsModule } from './clients/clients.module';
@@ -12,6 +13,7 @@ import { ContractsModule } from './contracts/contracts.module';
 import { EstimatesModule } from './estimates/estimates.module';
 import { FinanceModule } from './finance/finance.module';
 import { ImportsModule } from './imports/imports.module';
+import { NetWorthModule } from './net-worth/net-worth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { MailerModule } from './mailer/mailer.module';
@@ -60,6 +62,8 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     AccountsModule,
+    AssetsModule,
+    NetWorthModule,
     CategoriesModule,
     BudgetsModule,
     TransactionsModule,

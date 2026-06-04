@@ -31,6 +31,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Transactions', path: '/transactions', icon: 'transactions' },
       { label: 'Budgets', path: '/budgets', icon: 'budgets' },
       { label: 'Summary', path: '/finance', icon: 'finance' },
+      { label: 'Net worth', path: '/net-worth', icon: 'net-worth' },
       { label: 'Planned income', path: '/planned-income', icon: 'planned-income' },
       { label: 'Recurring expenses', path: '/recurring-expenses', icon: 'recurring-expenses' },
       { label: 'Loans', path: '/loans', icon: 'loans' },

@@ -20,6 +20,7 @@ import { CategoriesComponent } from './features/categories/categories.component'
 import { TransactionsComponent } from './features/transactions/transactions.component';
 import { BudgetsComponent } from './features/budgets/budgets.component';
 import { FinanceComponent } from './features/finance/finance.component';
+import { NetWorthComponent } from './features/net-worth/net-worth.component';
 import { ReconcileComponent } from './features/reconcile/reconcile.component';
 import { SettingsComponent } from './features/settings/settings.component';
 import { PlannedIncomesComponent } from './features/planned-incomes/planned-incomes.component';
@@ -62,6 +63,7 @@ export const routes: Routes = [
       { path: 'transactions', component: TransactionsComponent },
       { path: 'budgets', component: BudgetsComponent },
       { path: 'finance', component: FinanceComponent },
+      { path: 'net-worth', component: NetWorthComponent },
       { path: 'planned-income', component: PlannedIncomesComponent },
       { path: 'recurring-expenses', component: RecurringExpensesComponent },
       { path: 'loans', component: LoansComponent },
