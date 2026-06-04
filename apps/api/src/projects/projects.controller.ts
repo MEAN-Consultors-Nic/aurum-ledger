@@ -17,7 +17,13 @@ import { CreateCredentialDto, UpdateCredentialDto } from './dto/credential.dto';
 import { CreateDeliverableDto, UpdateDeliverableDto } from './dto/deliverable.dto';
 import { CreateNoteDto, UpdateNoteDto } from './dto/note.dto';
 import { CreateProjectDto } from './dto/create-project.dto';
-import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
+import {
+  ChecklistItemDto,
+  CreateTaskDto,
+  MoveTaskDto,
+  UpdateChecklistItemDto,
+  UpdateTaskDto,
+} from './dto/task.dto';
 import { GithubLinkDto } from './dto/github-link.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { ProjectCredentialsService } from './project-credentials.service';
@@ -174,6 +180,44 @@ export class ProjectsController {
   @Delete(':id/tasks/:taskId')
   deleteTask(@Param('taskId') taskId: string, @CurrentUser() user: RequestUser) {
     return this.tasksService.remove(taskId, user?._id);
+  }
+
+  @Patch(':id/tasks/:taskId/move')
+  moveTask(
+    @Param('taskId') taskId: string,
+    @Body() dto: MoveTaskDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tasksService.move(taskId, dto, user?._id);
+  }
+
+  // ----- Task checklist -----
+  @Post(':id/tasks/:taskId/checklist')
+  addChecklistItem(
+    @Param('taskId') taskId: string,
+    @Body() dto: ChecklistItemDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tasksService.addChecklistItem(taskId, dto, user?._id);
+  }
+
+  @Patch(':id/tasks/:taskId/checklist/:itemId')
+  updateChecklistItem(
+    @Param('taskId') taskId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateChecklistItemDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tasksService.updateChecklistItem(taskId, itemId, dto, user?._id);
+  }
+
+  @Delete(':id/tasks/:taskId/checklist/:itemId')
+  removeChecklistItem(
+    @Param('taskId') taskId: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.tasksService.removeChecklistItem(taskId, itemId, user?._id);
   }
 
   // ----- Credentials -----

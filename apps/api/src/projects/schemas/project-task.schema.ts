@@ -3,6 +3,21 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type ProjectTaskDocument = HydratedDocument<ProjectTask>;
 
+@Schema({ _id: true })
+export class ChecklistItem {
+  _id?: Types.ObjectId;
+
+  @Prop({ required: true })
+  text: string;
+
+  @Prop({ default: false })
+  done: boolean;
+
+  @Prop()
+  doneAt?: Date;
+}
+export const ChecklistItemSchema = SchemaFactory.createForClass(ChecklistItem);
+
 @Schema({ timestamps: true })
 export class ProjectTask {
   @Prop({ type: Types.ObjectId, ref: 'Project', required: true })
@@ -25,10 +40,19 @@ export class ProjectTask {
   priority: 'low' | 'medium' | 'high';
 
   @Prop()
+  startDate?: Date;
+
+  @Prop()
   dueDate?: Date;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })
   assignedTo?: Types.ObjectId;
+
+  @Prop({ type: [String], default: [] })
+  tags: string[];
+
+  @Prop({ type: [ChecklistItemSchema], default: [] })
+  checklist: ChecklistItem[];
 
   @Prop({ default: 0 })
   order: number;

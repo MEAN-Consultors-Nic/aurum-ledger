@@ -64,6 +64,13 @@ export type ProjectItem = {
   };
 };
 
+export type ChecklistItem = {
+  _id: string;
+  text: string;
+  done: boolean;
+  doneAt?: string;
+};
+
 export type ProjectTask = {
   _id: string;
   projectId: string;
@@ -71,8 +78,11 @@ export type ProjectTask = {
   description?: string;
   status: 'todo' | 'in_progress' | 'blocked' | 'done';
   priority: 'low' | 'medium' | 'high';
+  startDate?: string;
   dueDate?: string;
   assignedTo?: string | ProjectParty;
+  tags: string[];
+  checklist: ChecklistItem[];
   order: number;
   completedAt?: string;
   createdAt?: string;

@@ -123,6 +123,32 @@ export class ProjectsApiService {
   deleteTask(id: string, taskId: string) {
     return this.http.delete<ProjectTask>(`${this.base}/${id}/tasks/${taskId}`);
   }
+  moveTask(
+    id: string,
+    taskId: string,
+    payload: { status: 'todo' | 'in_progress' | 'blocked' | 'done'; order: number },
+  ) {
+    return this.http.patch<ProjectTask>(`${this.base}/${id}/tasks/${taskId}/move`, payload);
+  }
+  addChecklistItem(id: string, taskId: string, text: string) {
+    return this.http.post<ProjectTask>(`${this.base}/${id}/tasks/${taskId}/checklist`, { text });
+  }
+  updateChecklistItem(
+    id: string,
+    taskId: string,
+    itemId: string,
+    payload: { text?: string; done?: boolean },
+  ) {
+    return this.http.patch<ProjectTask>(
+      `${this.base}/${id}/tasks/${taskId}/checklist/${itemId}`,
+      payload,
+    );
+  }
+  deleteChecklistItem(id: string, taskId: string, itemId: string) {
+    return this.http.delete<ProjectTask>(
+      `${this.base}/${id}/tasks/${taskId}/checklist/${itemId}`,
+    );
+  }
 
   // ----- Credentials -----
   listCredentials(id: string) {

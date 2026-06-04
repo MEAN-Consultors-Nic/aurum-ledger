@@ -16,6 +16,7 @@ import {
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
 import { GithubPanelComponent, GithubRepoLink } from '../../shared/github-panel/github-panel.component';
+import { TasksBoardComponent } from './tasks-board.component';
 
 type Tab = 'overview' | 'tasks' | 'notes' | 'credentials' | 'deliverables';
 
@@ -148,6 +149,7 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
     ActionMenuComponent,
     SharePanelComponent,
     GithubPanelComponent,
+    TasksBoardComponent,
   ],
   template: `
     <div *ngIf="isLoading" class="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -257,79 +259,9 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
           </div>
         </div>
 
-        <!-- ========== TASKS ========== -->
-        <div *ngIf="activeTab === 'tasks'" class="p-6">
-          <form class="mb-4 flex flex-wrap items-end gap-2" (ngSubmit)="addTask()">
-            <input
-              [(ngModel)]="newTaskTitle"
-              name="newTaskTitle"
-              placeholder="New task title…"
-              class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <select
-              [(ngModel)]="newTaskPriority"
-              name="newTaskPriority"
-              class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-            <input
-              [(ngModel)]="newTaskDue"
-              name="newTaskDue"
-              type="date"
-              class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              [disabled]="!newTaskTitle.trim()"
-              class="rounded bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-40"
-            >
-              + Add task
-            </button>
-          </form>
-
-          <div *ngIf="tasks.length === 0" class="rounded-lg bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
-            No tasks yet. Add one above or apply a template from the actions menu.
-          </div>
-
-          <ul class="space-y-2">
-            <li
-              *ngFor="let task of tasks"
-              class="flex items-start gap-3 rounded-lg border border-slate-100 px-3 py-2.5 hover:border-slate-200"
-            >
-              <input
-                type="checkbox"
-                [checked]="task.status === 'done'"
-                (change)="toggleTaskDone(task)"
-                class="mt-1 h-4 w-4 rounded border-slate-300"
-              />
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <span
-                    class="text-sm"
-                    [ngClass]="
-                      task.status === 'done' ? 'text-slate-400 line-through' : 'text-slate-900'
-                    "
-                  >{{ task.title }}</span>
-                  <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase" [ngClass]="priorityBadge(task.priority)">
-                    {{ task.priority }}
-                  </span>
-                  <span *ngIf="task.status === 'blocked'" class="rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-rose-700">
-                    blocked
-                  </span>
-                  <span *ngIf="task.status === 'in_progress'" class="rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-sky-700">
-                    in progress
-                  </span>
-                </div>
-                <div class="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
-                  <span *ngIf="task.dueDate">Due {{ formatDate(task.dueDate) }}</span>
-                </div>
-              </div>
-              <app-action-menu [items]="taskActions(task)" />
-            </li>
-          </ul>
+        <!-- ========== TASKS (Kanban board) ========== -->
+        <div *ngIf="activeTab === 'tasks'" class="p-4">
+          <app-tasks-board [projectId]="projectId" [tasks]="tasks" />
         </div>
 
         <!-- ========== NOTES ========== -->
