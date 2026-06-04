@@ -1,0 +1,39 @@
+# Node / monorepo
+node_modules/
+**/node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+.pnpm-store/
+**/.pnpm-store/
+
+# Build outputs
+dist/
+**/dist/
+out/
+build/
+coverage/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Cache and tooling
+.angular/
+**/.angular/
+.turbo/
+.nx/
+.cache/
+**/.cache/
+
+# Vercel / Heroku
+.vercel/
+.heroku/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.history/
