@@ -34,7 +34,7 @@ export class ReportsService {
     const [receivableAggregate, paidThisMonth, dueNext30Days, overdueCount] =
       await Promise.all([
         this.contractModel.aggregate([
-          { $match: { deletedAt: { $exists: false } } },
+          { $match: { deletedAt: { $exists: false }, paymentOmittedAt: { $exists: false } } },
           {
             $project: {
               currency: {
@@ -93,6 +93,7 @@ export class ReportsService {
           {
             $match: {
               deletedAt: { $exists: false },
+              paymentOmittedAt: { $exists: false },
               endDate: { $gte: now, $lte: due30 },
             },
           },
@@ -111,6 +112,7 @@ export class ReportsService {
           {
             $match: {
               deletedAt: { $exists: false },
+              paymentOmittedAt: { $exists: false },
               endDate: { $lt: now },
             },
           },
@@ -158,7 +160,7 @@ export class ReportsService {
     const fxRate = this.getFxRate();
 
     return this.contractModel.aggregate([
-      { $match: { deletedAt: { $exists: false } } },
+      { $match: { deletedAt: { $exists: false }, paymentOmittedAt: { $exists: false } } },
       {
         $project: {
           groupId: groupField,
@@ -296,7 +298,13 @@ export class ReportsService {
 
       const [contractTotals, paidThisMonth, paidToDate, accountTotals, txTotals] = await Promise.all([
         this.contractModel.aggregate([
-          { $match: { deletedAt: { $exists: false }, createdAt: { $lte: end } } },
+          {
+            $match: {
+              deletedAt: { $exists: false },
+              paymentOmittedAt: { $exists: false },
+              createdAt: { $lte: end },
+            },
+          },
           {
             $project: {
               currency: { $cond: [{ $eq: ['$currency', 'NIO'] }, 'NIO', 'USD'] },
@@ -477,6 +485,7 @@ export class ReportsService {
         {
           $match: {
             deletedAt: { $exists: false },
+            paymentOmittedAt: { $exists: false },
             endDate: { $gte: start, $lte: end },
           },
         },

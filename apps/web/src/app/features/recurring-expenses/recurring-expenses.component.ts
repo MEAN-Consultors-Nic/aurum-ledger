@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApiService } from '../../core/services/accounts-api.service';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { RecurringExpensesApiService } from '../../core/services/recurring-expenses-api.service';
 import {
   RecurringExpenseItem,
@@ -10,11 +11,12 @@ import {
 } from '../../core/models/recurring-expense.model';
 import { AccountItem } from '../../core/models/account.model';
 import { CategoryItem } from '../../core/models/category.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-recurring-expenses',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-4">
@@ -118,20 +120,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button
-                  class="text-xs text-slate-700"
-                  (click)="confirm(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Confirm
-                </button>
-                <button
-                  class="ml-3 text-xs text-slate-400"
-                  (click)="omit(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Omit
-                </button>
+                <app-action-menu [items]="occurrenceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="occurrences.length === 0">
@@ -174,8 +163,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(item)">Edit</button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Disable</button>
+                <app-action-menu [items]="sourceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="recurringExpenses.length === 0">
@@ -315,6 +303,7 @@ export class RecurringExpensesComponent implements OnInit {
     private readonly recurringExpensesApi: RecurringExpensesApiService,
     private readonly accountsApi: AccountsApiService,
     private readonly categoriesApi: CategoriesApiService,
+    private readonly confirmDialog: ConfirmService,
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required]],
@@ -368,6 +357,28 @@ export class RecurringExpensesComponent implements OnInit {
       isActive: true,
     });
     this.isModalOpen = true;
+  }
+
+  sourceActions(item: RecurringExpenseItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: item.isActive ? 'Disable' : 'Enable', action: () => this.toggleActive(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
+  }
+
+  occurrenceActions(item: RecurringExpenseOccurrence): ActionMenuItem[] {
+    const locked = item.status !== 'planned' || this.isWorking;
+    return [
+      { label: 'Confirm payment', action: () => this.confirm(item), disabled: locked },
+      { label: 'Omit', action: () => this.omit(item), disabled: locked, danger: true },
+    ];
+  }
+
+  toggleActive(item: RecurringExpenseItem) {
+    this.recurringExpensesApi.update(item._id, { isActive: !item.isActive }).subscribe({
+      next: () => this.loadRecurring(),
+    });
   }
 
   openEdit(item: RecurringExpenseItem) {
@@ -436,7 +447,16 @@ export class RecurringExpensesComponent implements OnInit {
     });
   }
 
-  remove(item: RecurringExpenseItem) {
+  async remove(item: RecurringExpenseItem) {
+    const confirmed = await this.confirmDialog.open({
+      title: 'Delete recurring expense',
+      message: `Delete "${item.name}"? Future planned occurrences will be removed. Confirmed occurrences stay intact. This cannot be undone.`,
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
     this.recurringExpensesApi.remove(item._id).subscribe({
       next: () => {
         this.loadRecurring();

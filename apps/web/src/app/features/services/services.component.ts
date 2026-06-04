@@ -4,11 +4,12 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { ServicesApiService } from '../../core/services/services-api.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { ServiceItem } from '../../core/models/service.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-services',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -55,11 +56,7 @@ import { ServiceItem } from '../../core/models/service.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(item)">Edit</button>
-                <button class="ml-3 text-xs text-red-600" (click)="toggleStatus(item)">
-                  {{ item.isActive ? 'Deactivate' : 'Activate' }}
-                </button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Delete</button>
+                <app-action-menu [items]="rowActions(item)" />
               </td>
             </tr>
             <tr *ngIf="services.length === 0 && !isLoading">
@@ -201,6 +198,14 @@ export class ServicesComponent implements OnInit {
       isActive: true,
     });
     this.isModalOpen = true;
+  }
+
+  rowActions(item: ServiceItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: item.isActive ? 'Deactivate' : 'Activate', action: () => this.toggleStatus(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
   }
 
   openEdit(item: ServiceItem) {

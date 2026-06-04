@@ -6,6 +6,7 @@ import { CategoriesApiService } from '../../core/services/categories-api.service
 import { ConfirmService } from '../../core/services/confirm.service';
 import { PlannedIncomesApiService } from '../../core/services/planned-incomes-api.service';
 import { ReportsApiService } from '../../core/services/reports-api.service';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 import {
   PlannedIncomeAlerts,
   PlannedIncomeItem,
@@ -19,7 +20,7 @@ import { CategoryItem } from '../../core/models/category.model';
 @Component({
   selector: 'app-planned-incomes',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-4">
@@ -200,20 +201,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button
-                  class="text-xs text-slate-700"
-                  (click)="openConfirm(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Confirm
-                </button>
-                <button
-                  class="ml-3 text-xs text-slate-400"
-                  (click)="omit(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Omit
-                </button>
+                <app-action-menu [items]="occurrenceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="occurrences.length === 0">
@@ -256,17 +244,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700 hover:text-slate-900" (click)="openEdit(item)">Edit</button>
-                <button
-                  class="ml-3 text-xs hover:underline"
-                  [ngClass]="item.isActive ? 'text-amber-700' : 'text-emerald-700'"
-                  (click)="toggleActive(item)"
-                >
-                  {{ item.isActive ? 'Disable' : 'Enable' }}
-                </button>
-                <button class="ml-3 text-xs text-rose-600 hover:text-rose-800" (click)="remove(item)">
-                  Delete
-                </button>
+                <app-action-menu [items]="sourceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="plannedIncomes.length === 0">
@@ -537,6 +515,22 @@ export class PlannedIncomesComponent implements OnInit {
       isActive: true,
     });
     this.isModalOpen = true;
+  }
+
+  sourceActions(item: PlannedIncomeItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: item.isActive ? 'Disable' : 'Enable', action: () => this.toggleActive(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
+  }
+
+  occurrenceActions(item: PlannedIncomeOccurrence): ActionMenuItem[] {
+    const locked = item.status !== 'planned' || this.isWorking;
+    return [
+      { label: 'Confirm payment', action: () => this.openConfirm(item), disabled: locked },
+      { label: 'Omit', action: () => this.omit(item), disabled: locked, danger: true },
+    ];
   }
 
   openEdit(item: PlannedIncomeItem) {

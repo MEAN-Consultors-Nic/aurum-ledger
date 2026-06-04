@@ -4,11 +4,12 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { AccountsApiService } from '../../core/services/accounts-api.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { AccountItem } from '../../core/models/account.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-accounts',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -86,10 +87,8 @@ import { AccountItem } from '../../core/models/account.model';
                       </span>
                     </div>
                   </div>
-                  <div class="mt-4 flex justify-end gap-3 text-xs">
-                    <button class="text-slate-500" (click)="openReset(item)">Reset</button>
-                    <button class="text-slate-700" (click)="openEdit(item)">Edit</button>
-                    <button class="text-slate-400" (click)="remove(item)">Delete</button>
+                  <div class="mt-4 flex justify-end">
+                    <app-action-menu [items]="rowActions(item)" />
                   </div>
                 </div>
               </div>
@@ -139,10 +138,8 @@ import { AccountItem } from '../../core/models/account.model';
                     </span>
                   </div>
                 </div>
-                <div class="mt-4 flex justify-end gap-3 text-xs">
-                  <button class="text-slate-500" (click)="openReset(item)">Reset</button>
-                  <button class="text-slate-700" (click)="openEdit(item)">Edit</button>
-                  <button class="text-slate-400" (click)="remove(item)">Delete</button>
+                <div class="mt-4 flex justify-end">
+                  <app-action-menu [items]="rowActions(item)" />
                 </div>
               </div>
             </div>
@@ -191,10 +188,8 @@ import { AccountItem } from '../../core/models/account.model';
                     </span>
                   </div>
                 </div>
-                <div class="mt-4 flex justify-end gap-3 text-xs">
-                  <button class="text-slate-500" (click)="openReset(item)">Reset</button>
-                  <button class="text-slate-700" (click)="openEdit(item)">Edit</button>
-                  <button class="text-slate-400" (click)="remove(item)">Delete</button>
+                <div class="mt-4 flex justify-end">
+                  <app-action-menu [items]="rowActions(item)" />
                 </div>
               </div>
             </div>
@@ -420,6 +415,14 @@ export class AccountsComponent implements OnInit {
       isActive: true,
     });
     this.isModalOpen = true;
+  }
+
+  rowActions(item: AccountItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: 'Reset balance', action: () => this.openReset(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
   }
 
   openEdit(item: AccountItem) {

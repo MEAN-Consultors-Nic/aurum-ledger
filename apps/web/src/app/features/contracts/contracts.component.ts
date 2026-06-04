@@ -8,11 +8,12 @@ import { ServicesApiService } from '../../core/services/services-api.service';
 import { ContractItem } from '../../core/models/contract.model';
 import { ClientItem } from '../../core/models/client.model';
 import { ServiceItem } from '../../core/models/service.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-contracts',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -119,15 +120,7 @@ import { ServiceItem } from '../../core/models/service.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(item)">Edit</button>
-                <button
-                  class="ml-3 text-xs text-amber-600"
-                  (click)="cancel(item)"
-                  [disabled]="item.status === 'cancelled'"
-                >
-                  Cancel
-                </button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Delete</button>
+                <app-action-menu [items]="rowActions(item)" />
               </td>
             </tr>
             <tr *ngIf="contracts.length === 0 && !isLoading">
@@ -279,6 +272,57 @@ import { ServiceItem } from '../../core/models/service.model';
         </form>
       </div>
     </div>
+
+    <!-- Omit payment modal -->
+    <div
+      *ngIf="isOmitModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4"
+    >
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div class="text-lg font-semibold text-slate-900">Omit payment</div>
+        <div class="mt-1 text-sm text-slate-600" *ngIf="omittingContract">
+          {{ getClientName(omittingContract) }} ·
+          <span class="font-medium">{{ formatMoney(omittingContract.balance || 0, resolveCurrency(omittingContract.currency)) }}</span>
+          pending
+        </div>
+        <form class="mt-4 space-y-3" (ngSubmit)="confirmOmitPayment()">
+          <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+            Why is this payment being omitted?
+          </label>
+          <textarea
+            [(ngModel)]="omitNote"
+            name="omitNote"
+            rows="4"
+            required
+            minlength="3"
+            placeholder="e.g. Client renegotiated, written off as bad debt, service was not delivered…"
+            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          ></textarea>
+          <div class="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            This excludes the contract from outstanding receivables and reports. You can restore the
+            payment later if needed.
+          </div>
+          <div *ngIf="omitError" class="text-sm text-rose-600">{{ omitError }}</div>
+          <div class="mt-2 flex justify-end gap-3">
+            <button
+              type="button"
+              class="rounded border border-slate-200 px-4 py-2 text-xs uppercase tracking-wide text-slate-700"
+              (click)="closeOmitModal()"
+              [disabled]="isOmitSaving"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="rounded bg-amber-600 px-4 py-2 text-xs uppercase tracking-wide text-white disabled:opacity-50"
+              [disabled]="!omitNote || omitNote.length < 3 || isOmitSaving"
+            >
+              {{ isOmitSaving ? 'Omitting...' : 'Omit payment' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   `,
 })
 export class ContractsComponent implements OnInit {
@@ -300,6 +344,13 @@ export class ContractsComponent implements OnInit {
   editing: ContractItem | null = null;
   form: FormGroup;
   currencies: Array<'USD' | 'NIO'> = ['USD', 'NIO'];
+
+  // Omit payment modal state
+  isOmitModalOpen = false;
+  isOmitSaving = false;
+  omittingContract: ContractItem | null = null;
+  omitNote = '';
+  omitError = '';
 
   constructor(
     private readonly fb: FormBuilder,
@@ -492,6 +543,88 @@ export class ContractsComponent implements OnInit {
     });
   }
 
+  rowActions(item: ContractItem): ActionMenuItem[] {
+    const balance = item.balance ?? item.amount - (item.paidTotal ?? 0);
+    const omitted = !!item.paymentOmittedAt;
+    const items: ActionMenuItem[] = [
+      { label: 'Edit', action: () => this.openEdit(item) },
+    ];
+    if (!omitted && balance > 0 && item.status === 'active') {
+      items.push({
+        label: 'Omit payment',
+        action: () => this.openOmitPayment(item),
+      });
+    }
+    if (omitted) {
+      items.push({
+        label: 'Restore payment',
+        action: () => this.restorePayment(item),
+      });
+    }
+    if (item.status !== 'cancelled') {
+      items.push({
+        label: 'Cancel contract',
+        action: () => this.cancel(item),
+      });
+    }
+    items.push({
+      label: 'Delete',
+      action: () => this.remove(item),
+      danger: true,
+    });
+    return items;
+  }
+
+  openOmitPayment(item: ContractItem) {
+    this.omittingContract = item;
+    this.omitNote = '';
+    this.omitError = '';
+    this.isOmitModalOpen = true;
+  }
+
+  closeOmitModal() {
+    this.isOmitModalOpen = false;
+    this.omittingContract = null;
+    this.omitNote = '';
+    this.omitError = '';
+  }
+
+  confirmOmitPayment() {
+    if (!this.omittingContract || !this.omitNote || this.omitNote.length < 3) {
+      return;
+    }
+    this.isOmitSaving = true;
+    this.omitError = '';
+    this.contractsApi.omitPayment(this.omittingContract._id, { note: this.omitNote }).subscribe({
+      next: () => {
+        this.isOmitSaving = false;
+        this.closeOmitModal();
+        this.load();
+      },
+      error: (err) => {
+        this.isOmitSaving = false;
+        this.omitError = err?.error?.message ?? 'Unable to omit payment';
+      },
+    });
+  }
+
+  async restorePayment(item: ContractItem) {
+    const confirmed = await this.confirm.open({
+      title: 'Restore payment',
+      message: `Restore the pending payment for "${item.title || this.getClientName(item)}"? The balance will reappear in outstanding receivables.`,
+      confirmText: 'Restore',
+    });
+    if (!confirmed) {
+      return;
+    }
+    this.contractsApi.restorePayment(item._id).subscribe({
+      next: () => this.load(),
+      error: () => {
+        this.error = 'Unable to restore payment';
+      },
+    });
+  }
+
   async remove(item: ContractItem) {
     const confirmed = await this.confirm.open({
       title: 'Confirm delete',
@@ -552,7 +685,10 @@ export class ContractsComponent implements OnInit {
     return 'Cancelled';
   }
 
-  resolveFinancialStatus(item: ContractItem) {
+  resolveFinancialStatus(item: ContractItem): 'paid' | 'partial' | 'unpaid' | 'omitted' {
+    if (item.paymentOmittedAt) {
+      return 'omitted';
+    }
     if (item.financialStatus) {
       return item.financialStatus;
     }
@@ -566,23 +702,17 @@ export class ContractsComponent implements OnInit {
     return 'unpaid';
   }
 
-  formatFinancialStatus(status: 'paid' | 'partial' | 'unpaid') {
-    if (status === 'paid') {
-      return 'Paid';
-    }
-    if (status === 'partial') {
-      return 'Partial';
-    }
+  formatFinancialStatus(status: 'paid' | 'partial' | 'unpaid' | 'omitted') {
+    if (status === 'paid') return 'Paid';
+    if (status === 'partial') return 'Partial';
+    if (status === 'omitted') return 'Omitted';
     return 'Unpaid';
   }
 
-  financialStatusClass(status: 'paid' | 'partial' | 'unpaid') {
-    if (status === 'paid') {
-      return 'bg-emerald-100 text-emerald-700';
-    }
-    if (status === 'partial') {
-      return 'bg-amber-100 text-amber-700';
-    }
+  financialStatusClass(status: 'paid' | 'partial' | 'unpaid' | 'omitted') {
+    if (status === 'paid') return 'bg-emerald-100 text-emerald-700';
+    if (status === 'partial') return 'bg-amber-100 text-amber-700';
+    if (status === 'omitted') return 'bg-slate-200 text-slate-600';
     return 'bg-rose-100 text-rose-700';
   }
 

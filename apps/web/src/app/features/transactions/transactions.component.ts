@@ -8,11 +8,12 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { AccountItem } from '../../core/models/account.model';
 import { CategoryItem } from '../../core/models/category.model';
 import { TransactionItem } from '../../core/models/transaction.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-transactions',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -105,13 +106,7 @@ import { TransactionItem } from '../../core/models/transaction.model';
               <td class="py-3">{{ formatMoney(item.amount, item.currency) }}</td>
               <td class="py-3">{{ item.notes || '-' }}</td>
               <td class="py-3 text-right">
-                <button
-                  class="rounded border border-red-200 px-2 py-1 text-xs uppercase tracking-wide text-red-600"
-                  [disabled]="voidingIds.has(item._id)"
-                  (click)="voidTransaction(item)"
-                >
-                  {{ voidingIds.has(item._id) ? 'Voiding...' : 'Anular' }}
-                </button>
+                <app-action-menu [items]="rowActions(item)" />
               </td>
             </tr>
             <tr *ngIf="transactions.length === 0 && !isLoading">
@@ -648,6 +643,17 @@ export class TransactionsComponent implements OnInit {
       return item.flow === 'in' ? 'Adjustment +' : 'Adjustment -';
     }
     return 'Transfer';
+  }
+
+  rowActions(item: TransactionItem): ActionMenuItem[] {
+    return [
+      {
+        label: this.voidingIds.has(item._id) ? 'Voiding…' : 'Void transaction',
+        action: () => this.voidTransaction(item),
+        disabled: this.voidingIds.has(item._id),
+        danger: true,
+      },
+    ];
   }
 
   async voidTransaction(item: TransactionItem) {

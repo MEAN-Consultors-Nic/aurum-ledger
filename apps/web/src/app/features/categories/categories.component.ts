@@ -6,6 +6,7 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { CategoryItem } from '../../core/models/category.model';
 import { TransactionsApiService } from '../../core/services/transactions-api.service';
 import { TransactionItem } from '../../core/models/transaction.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 type CurrencyTotals = { USD: number; NIO: number };
 type TypeTotals = { income: CurrencyTotals; expense: CurrencyTotals };
@@ -14,7 +15,7 @@ type CategoryTotals = { own: TypeTotals; children: TypeTotals; total: TypeTotals
 @Component({
   selector: 'app-categories',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -139,8 +140,7 @@ type CategoryTotals = { own: TypeTotals; children: TypeTotals; total: TypeTotals
                 </ng-container>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(row.item)">Edit</button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(row.item)">Delete</button>
+                <app-action-menu [items]="rowActions(row.item)" />
               </td>
             </tr>
             <tr *ngIf="displayCategories.length === 0 && !isLoading">
@@ -275,6 +275,13 @@ export class CategoriesComponent implements OnInit {
     this.editing = null;
     this.form.reset({ name: '', type: 'expense', parentId: '' });
     this.isModalOpen = true;
+  }
+
+  rowActions(item: CategoryItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
   }
 
   openEdit(item: CategoryItem) {

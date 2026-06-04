@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, SortOrder, Types } from 'mongoose';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { FilterContractDto } from './dto/filter-contract.dto';
+import { OmitPaymentDto } from './dto/omit-payment.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 import { Contract, ContractDocument } from './schemas/contract.schema';
 
@@ -80,8 +81,13 @@ export class ContractsService {
     ]);
 
     const enriched = items.map((contract) => {
-      const balance = contract.amount - contract.paidTotal;
-      const financialStatus = this.resolveFinancialStatus(contract.amount, contract.paidTotal);
+      const omitted = !!contract.paymentOmittedAt;
+      const balance = omitted ? 0 : contract.amount - contract.paidTotal;
+      const financialStatus = this.resolveFinancialStatus(
+        contract.amount,
+        contract.paidTotal,
+        omitted,
+      );
       return {
         ...contract.toObject(),
         balance,
@@ -103,10 +109,11 @@ export class ContractsService {
       throw new NotFoundException('Contract not found');
     }
 
+    const omitted = !!contract.paymentOmittedAt;
     return {
       ...contract.toObject(),
-      balance: contract.amount - contract.paidTotal,
-      financialStatus: this.resolveFinancialStatus(contract.amount, contract.paidTotal),
+      balance: omitted ? 0 : contract.amount - contract.paidTotal,
+      financialStatus: this.resolveFinancialStatus(contract.amount, contract.paidTotal, omitted),
     };
   }
 
@@ -176,6 +183,60 @@ export class ContractsService {
     return contract;
   }
 
+  async omitPayment(id: string, dto: OmitPaymentDto, userId?: Types.ObjectId) {
+    const existing = await this.contractModel.findOne({
+      _id: id,
+      deletedAt: { $exists: false },
+    });
+    if (!existing) {
+      throw new NotFoundException('Contract not found');
+    }
+    if (existing.paymentOmittedAt) {
+      throw new BadRequestException('Payment is already omitted for this contract');
+    }
+    const balance = existing.amount - existing.paidTotal;
+    if (balance <= 0) {
+      throw new BadRequestException('No pending balance to omit');
+    }
+
+    const contract = await this.contractModel.findByIdAndUpdate(
+      id,
+      {
+        paymentOmittedAt: new Date(),
+        paymentOmissionNote: dto.note,
+        paymentOmittedBy: userId,
+        updatedBy: userId,
+      },
+      { new: true },
+    );
+
+    return contract;
+  }
+
+  async restorePayment(id: string, userId?: Types.ObjectId) {
+    const existing = await this.contractModel.findOne({
+      _id: id,
+      deletedAt: { $exists: false },
+    });
+    if (!existing) {
+      throw new NotFoundException('Contract not found');
+    }
+    if (!existing.paymentOmittedAt) {
+      throw new BadRequestException('Payment is not omitted for this contract');
+    }
+
+    const contract = await this.contractModel.findByIdAndUpdate(
+      id,
+      {
+        $unset: { paymentOmittedAt: 1, paymentOmissionNote: 1, paymentOmittedBy: 1 },
+        updatedBy: userId,
+      },
+      { new: true },
+    );
+
+    return contract;
+  }
+
   async softDelete(id: string, userId?: Types.ObjectId) {
     const contract = await this.contractModel.findOneAndUpdate(
       { _id: id, deletedAt: { $exists: false } },
@@ -196,14 +257,17 @@ export class ContractsService {
       throw new NotFoundException('Contract not found');
     }
 
-    const balance = contract.amount - contract.paidTotal;
+    const omitted = !!contract.paymentOmittedAt;
+    const balance = omitted ? 0 : contract.amount - contract.paidTotal;
     return {
       amount: contract.amount,
       paidTotal: contract.paidTotal,
       balance,
       paymentCount: contract.paymentCount,
       lastPaymentDate: contract.lastPaymentDate,
-      status: this.resolveFinancialStatus(contract.amount, contract.paidTotal),
+      status: this.resolveFinancialStatus(contract.amount, contract.paidTotal, omitted),
+      paymentOmittedAt: contract.paymentOmittedAt,
+      paymentOmissionNote: contract.paymentOmissionNote,
     };
   }
 
@@ -238,7 +302,10 @@ export class ContractsService {
     }
   }
 
-  private resolveFinancialStatus(amount: number, paidTotal: number) {
+  private resolveFinancialStatus(amount: number, paidTotal: number, omitted = false) {
+    if (omitted) {
+      return 'omitted';
+    }
     if (paidTotal <= 0) {
       return 'unpaid';
     }

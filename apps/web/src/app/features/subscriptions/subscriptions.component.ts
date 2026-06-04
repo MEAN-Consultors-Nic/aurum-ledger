@@ -3,15 +3,17 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApiService } from '../../core/services/accounts-api.service';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { SubscriptionsApiService } from '../../core/services/subscriptions-api.service';
 import { SubscriptionItem, SubscriptionOccurrence } from '../../core/models/subscription.model';
 import { AccountItem } from '../../core/models/account.model';
 import { CategoryItem } from '../../core/models/category.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-subscriptions',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-4">
@@ -78,20 +80,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button
-                  class="text-xs text-slate-700"
-                  (click)="confirm(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Confirm
-                </button>
-                <button
-                  class="ml-3 text-xs text-slate-400"
-                  (click)="omit(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Omit
-                </button>
+                <app-action-menu [items]="occurrenceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="occurrences.length === 0">
@@ -132,8 +121,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(item)">Edit</button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Disable</button>
+                <app-action-menu [items]="sourceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="subscriptions.length === 0">
@@ -271,6 +259,7 @@ export class SubscriptionsComponent implements OnInit {
     private readonly subscriptionsApi: SubscriptionsApiService,
     private readonly accountsApi: AccountsApiService,
     private readonly categoriesApi: CategoriesApiService,
+    private readonly confirmDialog: ConfirmService,
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required]],
@@ -316,6 +305,28 @@ export class SubscriptionsComponent implements OnInit {
       isActive: true,
     });
     this.isModalOpen = true;
+  }
+
+  sourceActions(item: SubscriptionItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: item.isActive ? 'Disable' : 'Enable', action: () => this.toggleActive(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
+  }
+
+  occurrenceActions(item: SubscriptionOccurrence): ActionMenuItem[] {
+    const locked = item.status !== 'planned' || this.isWorking;
+    return [
+      { label: 'Confirm charge', action: () => this.confirm(item), disabled: locked },
+      { label: 'Omit', action: () => this.omit(item), disabled: locked, danger: true },
+    ];
+  }
+
+  toggleActive(item: SubscriptionItem) {
+    this.subscriptionsApi.update(item._id, { isActive: !item.isActive }).subscribe({
+      next: () => this.loadSubscriptions(),
+    });
   }
 
   openEdit(item: SubscriptionItem) {
@@ -384,7 +395,16 @@ export class SubscriptionsComponent implements OnInit {
     });
   }
 
-  remove(item: SubscriptionItem) {
+  async remove(item: SubscriptionItem) {
+    const confirmed = await this.confirmDialog.open({
+      title: 'Delete subscription',
+      message: `Delete "${item.name}"? Future planned charges will be removed. This cannot be undone.`,
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
     this.subscriptionsApi.remove(item._id).subscribe({
       next: () => {
         this.loadSubscriptions();

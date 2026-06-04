@@ -19,7 +19,10 @@ export type ContractItem = {
   paymentCount: number;
   lastPaymentDate?: string;
   balance?: number;
-  financialStatus?: 'paid' | 'partial' | 'unpaid';
+  financialStatus?: 'paid' | 'partial' | 'unpaid' | 'omitted';
+  paymentOmittedAt?: string;
+  paymentOmissionNote?: string;
+  paymentOmittedBy?: string;
   createdAt?: string;
   updatedAt?: string;
 };

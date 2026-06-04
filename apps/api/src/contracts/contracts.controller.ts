@@ -6,6 +6,7 @@ import { RequestUser } from '../common/types/request-user.type';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { FilterContractDto } from './dto/filter-contract.dto';
+import { OmitPaymentDto } from './dto/omit-payment.dto';
 import { UpdateContractDto } from './dto/update-contract.dto';
 
 @ApiTags('contracts')
@@ -42,6 +43,20 @@ export class ContractsController {
   @Patch(':id/cancel')
   cancel(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.contractsService.cancel(id, user?._id);
+  }
+
+  @Post(':id/omit-payment')
+  omitPayment(
+    @Param('id') id: string,
+    @Body() dto: OmitPaymentDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.contractsService.omitPayment(id, dto, user?._id);
+  }
+
+  @Patch(':id/restore-payment')
+  restorePayment(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.contractsService.restorePayment(id, user?._id);
   }
 
   @Delete(':id')

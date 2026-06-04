@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { UsersApiService } from '../../core/services/users-api.service';
 import { AdminUser } from '../../core/models/admin-user.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -55,10 +56,7 @@ import { AdminUser } from '../../core/models/admin-user.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(user)">Edit</button>
-                <button class="ml-3 text-xs text-amber-600" (click)="toggleActive(user)">
-                  {{ user.isActive ? 'Deactivate' : 'Activate' }}
-                </button>
+                <app-action-menu [items]="rowActions(user)" />
               </td>
             </tr>
             <tr *ngIf="users.length === 0 && !isLoading">
@@ -204,6 +202,13 @@ export class UsersComponent implements OnInit {
       password: '',
     });
     this.isModalOpen = true;
+  }
+
+  rowActions(user: AdminUser): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(user) },
+      { label: user.isActive ? 'Deactivate' : 'Activate', action: () => this.toggleActive(user) },
+    ];
   }
 
   openEdit(user: AdminUser) {

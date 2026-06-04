@@ -71,6 +71,20 @@ export class ContractsApiService {
     return this.http.patch<ContractItem>(`${environment.apiUrl}/contracts/${id}/cancel`, {});
   }
 
+  omitPayment(id: string, payload: { note: string }) {
+    return this.http.post<ContractItem>(
+      `${environment.apiUrl}/contracts/${id}/omit-payment`,
+      payload,
+    );
+  }
+
+  restorePayment(id: string) {
+    return this.http.patch<ContractItem>(
+      `${environment.apiUrl}/contracts/${id}/restore-payment`,
+      {},
+    );
+  }
+
   remove(id: string) {
     return this.http.delete<ContractItem>(`${environment.apiUrl}/contracts/${id}`);
   }

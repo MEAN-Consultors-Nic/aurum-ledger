@@ -52,6 +52,15 @@ export class Contract {
 
   @Prop()
   deletedAt?: Date;
+
+  @Prop()
+  paymentOmittedAt?: Date;
+
+  @Prop()
+  paymentOmissionNote?: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  paymentOmittedBy?: Types.ObjectId;
 }
 
 export const ContractSchema = SchemaFactory.createForClass(Contract);

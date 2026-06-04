@@ -7,11 +7,12 @@ import { ServicesApiService } from '../../core/services/services-api.service';
 import { ClientItem } from '../../core/models/client.model';
 import { EstimateItem } from '../../core/models/estimate.model';
 import { ServiceItem } from '../../core/models/service.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-estimates',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -96,28 +97,7 @@ import { ServiceItem } from '../../core/models/service.model';
               </td>
               <td class="py-3">{{ formatDate(item.createdAt) }}</td>
               <td class="py-3 text-right">
-                <button
-                  class="text-xs text-slate-700"
-                  (click)="openNotes(item)"
-                  [disabled]="!hasNotes(item)"
-                >
-                  Notes
-                </button>
-                <button
-                  class="ml-3 text-xs text-slate-700"
-                  (click)="openEdit(item)"
-                  [disabled]="item.status === 'converted'"
-                >
-                  Edit
-                </button>
-                <button
-                  *ngIf="item.status !== 'converted' && item.status !== 'rejected' && item.status !== 'expired'"
-                  class="ml-3 text-xs text-emerald-600"
-                  (click)="openConvert(item)"
-                >
-                  Convert
-                </button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Delete</button>
+                <app-action-menu [items]="rowActions(item)" />
               </td>
             </tr>
             <tr *ngIf="estimates.length === 0 && !isLoading">
@@ -474,6 +454,23 @@ export class EstimatesComponent implements OnInit {
       notes: '',
     });
     this.isModalOpen = true;
+  }
+
+  rowActions(item: EstimateItem): ActionMenuItem[] {
+    const items: ActionMenuItem[] = [];
+    if (this.hasNotes(item)) {
+      items.push({ label: 'View notes', action: () => this.openNotes(item) });
+    }
+    items.push({
+      label: 'Edit',
+      action: () => this.openEdit(item),
+      disabled: item.status === 'converted',
+    });
+    if (item.status !== 'converted' && item.status !== 'rejected' && item.status !== 'expired') {
+      items.push({ label: 'Convert to contract', action: () => this.openConvert(item) });
+    }
+    items.push({ label: 'Delete', action: () => this.remove(item), danger: true });
+    return items;
   }
 
   openEdit(item: EstimateItem) {

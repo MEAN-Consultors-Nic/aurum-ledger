@@ -12,11 +12,12 @@ import { ClientItem } from '../../core/models/client.model';
 import { AccountItem } from '../../core/models/account.model';
 import { ContractItem } from '../../core/models/contract.model';
 import { environment } from '../../../environments/environment';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -118,7 +119,7 @@ import { environment } from '../../../environments/environment';
               <td class="py-3">{{ methodLabel(item.method) }}</td>
               <td class="py-3">{{ item.reference || '-' }}</td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-400" (click)="remove(item)">Delete</button>
+                <app-action-menu [items]="rowActions(item)" />
               </td>
             </tr>
             <tr *ngIf="payments.length === 0 && !isLoading">
@@ -584,6 +585,12 @@ export class PaymentsComponent implements OnInit {
         this.modalError = this.getErrorMessage(err) ?? 'Unable to save payment';
       },
     });
+  }
+
+  rowActions(item: PaymentItem): ActionMenuItem[] {
+    return [
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
   }
 
   async remove(item: PaymentItem) {

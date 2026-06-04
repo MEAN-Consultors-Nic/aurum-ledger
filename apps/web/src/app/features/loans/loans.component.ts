@@ -3,15 +3,17 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AccountsApiService } from '../../core/services/accounts-api.service';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
+import { ConfirmService } from '../../core/services/confirm.service';
 import { LoansApiService } from '../../core/services/loans-api.service';
 import { LoanItem, LoanPaymentOccurrence } from '../../core/models/loan.model';
 import { AccountItem } from '../../core/models/account.model';
 import { CategoryItem } from '../../core/models/category.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-loans',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex flex-wrap items-center justify-between gap-4">
@@ -78,20 +80,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button
-                  class="text-xs text-slate-700"
-                  (click)="confirm(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Confirm
-                </button>
-                <button
-                  class="ml-3 text-xs text-slate-400"
-                  (click)="omit(item)"
-                  [disabled]="item.status !== 'planned' || isWorking"
-                >
-                  Omit
-                </button>
+                <app-action-menu [items]="occurrenceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="occurrences.length === 0">
@@ -134,8 +123,7 @@ import { CategoryItem } from '../../core/models/category.model';
                 </span>
               </td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(item)">Edit</button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Disable</button>
+                <app-action-menu [items]="sourceActions(item)" />
               </td>
             </tr>
             <tr *ngIf="loans.length === 0">
@@ -280,6 +268,7 @@ export class LoansComponent implements OnInit {
     private readonly loansApi: LoansApiService,
     private readonly accountsApi: AccountsApiService,
     private readonly categoriesApi: CategoriesApiService,
+    private readonly confirmDialog: ConfirmService,
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required]],
@@ -327,6 +316,28 @@ export class LoansComponent implements OnInit {
       isActive: true,
     });
     this.isModalOpen = true;
+  }
+
+  sourceActions(item: LoanItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: item.isActive ? 'Disable' : 'Enable', action: () => this.toggleActive(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
+  }
+
+  occurrenceActions(item: LoanPaymentOccurrence): ActionMenuItem[] {
+    const locked = item.status !== 'planned' || this.isWorking;
+    return [
+      { label: 'Confirm payment', action: () => this.confirm(item), disabled: locked },
+      { label: 'Omit', action: () => this.omit(item), disabled: locked, danger: true },
+    ];
+  }
+
+  toggleActive(item: LoanItem) {
+    this.loansApi.update(item._id, { isActive: !item.isActive }).subscribe({
+      next: () => this.loadLoans(),
+    });
   }
 
   openEdit(item: LoanItem) {
@@ -397,7 +408,16 @@ export class LoansComponent implements OnInit {
     });
   }
 
-  remove(item: LoanItem) {
+  async remove(item: LoanItem) {
+    const confirmed = await this.confirmDialog.open({
+      title: 'Delete loan',
+      message: `Delete "${item.name}"? Future planned payments will be removed. This cannot be undone.`,
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
     this.loansApi.remove(item._id).subscribe({
       next: () => {
         this.loadLoans();

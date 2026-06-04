@@ -6,11 +6,12 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
 import { BudgetItem } from '../../core/models/budget.model';
 import { CategoryItem } from '../../core/models/category.model';
+import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-budgets',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -68,8 +69,7 @@ import { CategoryItem } from '../../core/models/category.model';
               <td class="py-3">{{ formatMoney(item.amount, item.currency) }}</td>
               <td class="py-3">{{ item.currency }}</td>
               <td class="py-3 text-right">
-                <button class="text-xs text-slate-700" (click)="openEdit(item)">Edit</button>
-                <button class="ml-3 text-xs text-slate-400" (click)="remove(item)">Delete</button>
+                <app-action-menu [items]="rowActions(item)" />
               </td>
             </tr>
             <tr *ngIf="budgets.length === 0 && !isLoading">
@@ -226,6 +226,13 @@ export class BudgetsComponent implements OnInit {
       currency: 'USD',
     });
     this.isModalOpen = true;
+  }
+
+  rowActions(item: BudgetItem): ActionMenuItem[] {
+    return [
+      { label: 'Edit', action: () => this.openEdit(item) },
+      { label: 'Delete', action: () => this.remove(item), danger: true },
+    ];
   }
 
   openEdit(item: BudgetItem) {
