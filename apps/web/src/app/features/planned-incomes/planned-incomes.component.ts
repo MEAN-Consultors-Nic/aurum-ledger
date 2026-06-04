@@ -23,236 +23,336 @@ import { CategoryItem } from '../../core/models/category.model';
   imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
   template: `
     <div class="space-y-6">
-      <div class="flex flex-wrap items-center justify-between gap-4">
+      <!-- HERO -->
+      <header class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div class="text-2xl font-semibold">Planned income</div>
-          <div class="text-sm text-slate-500">Monthly salary planning and confirmation</div>
+          <div class="text-2xl font-semibold tracking-tight text-slate-900">Planned income</div>
+          <div class="mt-1 text-sm text-slate-500">
+            Recurring salaries, retainers, royalties — track expected vs received for the month.
+          </div>
         </div>
-        <button
-          class="rounded bg-slate-900 px-3 py-2 text-xs uppercase tracking-wide text-white"
-          (click)="openCreate()"
-        >
-          New planned income
-        </button>
-      </div>
-
-      <div *ngIf="alerts?.count" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-        <div class="font-semibold text-amber-900">
-          {{ alerts?.count }} planned income item(s) are overdue this month
-        </div>
-        <div class="mt-2 text-amber-800">
-          Confirm or omit them to keep your plan accurate.
-        </div>
-      </div>
-
-      <div class="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-4">
-        <div>
-          <label class="text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
+        <div class="flex items-center gap-2">
           <input
             type="month"
             [(ngModel)]="selectedMonth"
-            class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            (ngModelChange)="loadMonth()"
+            class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
           />
-        </div>
-        <div class="lg:col-span-3 flex items-end">
           <button
-            class="w-full rounded bg-slate-900 px-3 py-2 text-xs uppercase tracking-wide text-white"
-            (click)="loadMonth()"
+            (click)="openCreate()"
+            class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white"
           >
-            Refresh
+            + Add source
           </button>
         </div>
+      </header>
+
+      <!-- ALERT BANNER -->
+      <div
+        *ngIf="alerts?.count"
+        class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+      >
+        <div class="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-sm font-bold text-amber-700">!</div>
+        <div class="flex-1">
+          <div class="text-sm font-semibold text-amber-900">
+            {{ alerts?.count }} planned income{{ alerts?.count === 1 ? '' : 's' }} overdue
+          </div>
+          <div class="text-xs text-amber-800">
+            Confirm what you received, or omit if it won't arrive. Keeps your plan accurate.
+          </div>
+        </div>
       </div>
 
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="text-sm font-semibold text-slate-800">Projected income (month)</div>
+      <!-- MONTH OVERVIEW (single hero card) -->
+      <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="grid gap-6 md:grid-cols-2">
+          <div>
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              {{ monthLabel() }} · {{ plannedIncomes.length }} {{ plannedIncomes.length === 1 ? 'source' : 'sources' }}
+            </div>
+            <div class="mt-2 text-3xl font-semibold text-slate-900">
+              {{ formatMoney(summary?.totals?.plannedUsd ?? 0, 'USD') }}
+            </div>
+            <div class="text-sm text-slate-500">
+              + {{ formatMoney(summary?.totals?.plannedNio ?? 0, 'NIO') }} expected
+            </div>
+          </div>
+          <div class="md:text-right">
+            <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Confirmed so far</div>
+            <div class="mt-2 text-3xl font-semibold text-emerald-700">
+              {{ formatMoney(summary?.totals?.confirmedUsd ?? 0, 'USD') }}
+            </div>
+            <div class="text-sm text-slate-500">
+              + {{ formatMoney(summary?.totals?.confirmedNio ?? 0, 'NIO') }} received
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="mt-6">
+          <div class="flex items-center justify-between text-xs text-slate-600">
+            <span>
+              {{ confirmationProgress().confirmed }} of {{ confirmationProgress().total }} occurrences confirmed
+            </span>
+            <span class="font-semibold text-slate-900">{{ confirmationProgress().percent }}%</span>
+          </div>
+          <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              class="h-full bg-emerald-500 transition-all"
+              [style.width.%]="confirmationProgress().percent"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Optional projection (contract receivables) -->
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
           <label class="flex items-center gap-2 text-xs text-slate-600">
             <input type="checkbox" [(ngModel)]="includeContracts" />
-            Include contract receivables
+            Include contract receivables in projection
           </label>
-        </div>
-        <div class="mt-3 grid gap-4 md:grid-cols-3">
-          <div class="rounded-lg border border-slate-200 p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-500">Planned income</div>
-            <div class="text-lg font-semibold">
-              {{ formatMoney(projection?.plannedUsd ?? 0, 'USD') }}
-            </div>
-            <div class="text-xs text-slate-500">
-              {{ formatMoney(projection?.plannedNio ?? 0, 'NIO') }}
-            </div>
-          </div>
-          <div class="rounded-lg border border-slate-200 p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-500">Contract receivables</div>
-            <div class="text-lg font-semibold">
-              {{ formatMoney(projection?.contractUsd ?? 0, 'USD') }}
-            </div>
-            <div class="text-xs text-slate-500">
-              {{ formatMoney(projection?.contractNio ?? 0, 'NIO') }}
-            </div>
-          </div>
-          <div class="rounded-lg border border-slate-200 p-4">
-            <div class="text-xs uppercase tracking-wide text-slate-500">Projected total</div>
-            <div class="text-lg font-semibold">
-              {{ formatMoney(projectedTotalUsd(), 'USD') }}
-            </div>
-            <div class="text-xs text-slate-500">
-              {{ formatMoney(projectedTotalNio(), 'NIO') }}
-            </div>
+          <div *ngIf="includeContracts && projection" class="text-xs text-slate-600">
+            Projected total:
+            <span class="font-semibold text-slate-900">{{ formatMoney(projectedTotalUsd(), 'USD') }}</span>
+            <span class="text-slate-400"> · {{ formatMoney(projectedTotalNio(), 'NIO') }}</span>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs uppercase tracking-wide text-slate-500">Planned USD</div>
-          <div class="text-2xl font-semibold">
-            {{ formatMoney(summary?.totals?.plannedUsd ?? 0, 'USD') }}
-          </div>
+      <!-- SCHEDULE -->
+      <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-5 py-4">
+          <div class="text-sm font-semibold text-slate-900">Schedule</div>
           <div class="text-xs text-slate-500">
-            Confirmed: {{ formatMoney(summary?.totals?.confirmedUsd ?? 0, 'USD') }}
+            Confirm what was received, omit if it won't arrive.
           </div>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs uppercase tracking-wide text-slate-500">Planned NIO</div>
-          <div class="text-2xl font-semibold">
-            {{ formatMoney(summary?.totals?.plannedNio ?? 0, 'NIO') }}
-          </div>
-          <div class="text-xs text-slate-500">
-            Confirmed: {{ formatMoney(summary?.totals?.confirmedNio ?? 0, 'NIO') }}
-          </div>
-        </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs uppercase tracking-wide text-slate-500">Variance USD</div>
-          <div class="text-2xl font-semibold">
-            {{ formatMoney(summary?.totals?.varianceUsd ?? 0, 'USD') }}
-          </div>
-        </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs uppercase tracking-wide text-slate-500">Variance NIO</div>
-          <div class="text-2xl font-semibold">
-            {{ formatMoney(summary?.totals?.varianceNio ?? 0, 'NIO') }}
-          </div>
-        </div>
-      </div>
 
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="text-sm font-semibold text-slate-800">Plan vs real by account</div>
-        <table class="mt-3 w-full text-sm">
-          <thead class="text-left text-xs uppercase tracking-wide text-slate-400">
-            <tr>
-              <th class="py-2">Account</th>
-              <th class="py-2">Planned</th>
-              <th class="py-2">Confirmed</th>
-              <th class="py-2">Variance</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of summary?.byAccount || []" class="border-t border-slate-100">
-              <td class="py-3">{{ item.accountName }}</td>
-              <td class="py-3">{{ formatMoney(item.plannedTotal, item.currency) }}</td>
-              <td class="py-3">{{ formatMoney(item.confirmedTotal, item.currency) }}</td>
-              <td class="py-3">{{ formatMoney(item.variance, item.currency) }}</td>
-            </tr>
-            <tr *ngIf="(summary?.byAccount?.length || 0) === 0">
-              <td colspan="4" class="py-4 text-center text-sm text-slate-500">No data</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="text-sm font-semibold text-slate-800">Planned income occurrences</div>
-        <table class="mt-3 w-full text-sm">
-          <thead class="text-left text-xs uppercase tracking-wide text-slate-400">
-            <tr>
-              <th class="py-2">Date</th>
-              <th class="py-2">Name</th>
-              <th class="py-2">Account</th>
-              <th class="py-2">Amount</th>
-              <th class="py-2">Received</th>
-              <th class="py-2">Fees</th>
-              <th class="py-2">Status</th>
-              <th class="py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of occurrences" class="border-t border-slate-100">
-              <td class="py-3">{{ formatDate(item.date) }}</td>
-              <td class="py-3">{{ resolvePlannedName(item) }}</td>
-              <td class="py-3">{{ resolveAccountName(item) }}</td>
-              <td class="py-3">{{ formatMoney(item.amount, item.currency) }}</td>
-              <td class="py-3">
-                {{ formatMoney(item.receivedAmount ?? 0, item.currency) }}
-              </td>
-              <td class="py-3">
-                {{ formatMoney(item.feeAmount ?? 0, item.currency) }}
-              </td>
-              <td class="py-3">
-                <span
-                  class="rounded-full px-2 py-1 text-xs"
-                  [ngClass]="{
-                    'bg-slate-100 text-slate-600': item.status === 'planned',
-                    'bg-emerald-100 text-emerald-700': item.status === 'confirmed',
-                    'bg-rose-100 text-rose-700': item.status === 'omitted'
-                  }"
+        <!-- Overdue -->
+        <ng-container *ngIf="grouped().overdue.length > 0">
+          <div class="flex items-center gap-2 border-t border-slate-100 bg-rose-50/40 px-5 py-2">
+            <span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700">Overdue</span>
+            <span class="text-xs text-slate-500">{{ grouped().overdue.length }}</span>
+          </div>
+          <ul class="divide-y divide-slate-100">
+            <li *ngFor="let o of grouped().overdue" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-slate-900">{{ resolvePlannedName(o) }}</span>
+                  <span class="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                    {{ daysOverdue(o.date) }}d overdue
+                  </span>
+                </div>
+                <div class="text-xs text-slate-500">
+                  Due {{ formatShortDate(o.date) }} · {{ resolveAccountName(o) }}
+                </div>
+              </div>
+              <div class="font-semibold text-slate-900">{{ formatMoney(o.amount, o.currency) }}</div>
+              <div class="flex items-center gap-2">
+                <button
+                  (click)="openConfirm(o)"
+                  [disabled]="isWorking"
+                  class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  {{ item.status }}
-                </span>
-              </td>
-              <td class="py-3 text-right">
-                <app-action-menu [items]="occurrenceActions(item)" />
-              </td>
-            </tr>
-            <tr *ngIf="occurrences.length === 0">
-              <td colspan="8" class="py-4 text-center text-sm text-slate-500">No occurrences</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="text-sm font-semibold text-slate-800">Planned income sources</div>
-        <table class="mt-3 w-full text-sm">
-          <thead class="text-left text-xs uppercase tracking-wide text-slate-400">
-            <tr>
-              <th class="py-2">Name</th>
-              <th class="py-2">Account</th>
-              <th class="py-2">Category</th>
-              <th class="py-2">Amount</th>
-              <th class="py-2">Days</th>
-              <th class="py-2">Status</th>
-              <th class="py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let item of plannedIncomes" class="border-t border-slate-100">
-              <td class="py-3">{{ item.name }}</td>
-              <td class="py-3">{{ resolveAccountName(item) }}</td>
-              <td class="py-3">{{ resolveCategoryName(item) }}</td>
-              <td class="py-3">{{ formatMoney(item.amount, item.currency) }}</td>
-              <td class="py-3">{{ item.daysOfMonth.join(', ') }}</td>
-              <td class="py-3">
-                <span
-                  class="rounded-full px-2 py-1 text-xs"
-                  [ngClass]="{
-                    'bg-emerald-100 text-emerald-700': item.isActive,
-                    'bg-slate-100 text-slate-600': !item.isActive
-                  }"
+                  Confirm
+                </button>
+                <button
+                  (click)="omit(o)"
+                  [disabled]="isWorking"
+                  class="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
                 >
-                  {{ item.isActive ? 'Active' : 'Inactive' }}
+                  Omit
+                </button>
+              </div>
+            </li>
+          </ul>
+        </ng-container>
+
+        <!-- This week -->
+        <ng-container *ngIf="grouped().thisWeek.length > 0">
+          <div class="flex items-center gap-2 border-t border-slate-100 bg-amber-50/40 px-5 py-2">
+            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">This week</span>
+            <span class="text-xs text-slate-500">{{ grouped().thisWeek.length }}</span>
+          </div>
+          <ul class="divide-y divide-slate-100">
+            <li *ngFor="let o of grouped().thisWeek" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="font-medium text-slate-900">{{ resolvePlannedName(o) }}</div>
+                <div class="text-xs text-slate-500">
+                  Due {{ formatShortDate(o.date) }} · {{ resolveAccountName(o) }}
+                </div>
+              </div>
+              <div class="font-semibold text-slate-900">{{ formatMoney(o.amount, o.currency) }}</div>
+              <div class="flex items-center gap-2">
+                <button
+                  (click)="openConfirm(o)"
+                  [disabled]="isWorking"
+                  class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Confirm
+                </button>
+                <button
+                  (click)="omit(o)"
+                  [disabled]="isWorking"
+                  class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Omit
+                </button>
+              </div>
+            </li>
+          </ul>
+        </ng-container>
+
+        <!-- Later this month -->
+        <ng-container *ngIf="grouped().later.length > 0">
+          <div class="flex items-center gap-2 border-t border-slate-100 px-5 py-2">
+            <span class="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700">Later this month</span>
+            <span class="text-xs text-slate-500">{{ grouped().later.length }}</span>
+          </div>
+          <ul class="divide-y divide-slate-100">
+            <li *ngFor="let o of grouped().later" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="font-medium text-slate-900">{{ resolvePlannedName(o) }}</div>
+                <div class="text-xs text-slate-500">
+                  Due {{ formatShortDate(o.date) }} · {{ resolveAccountName(o) }}
+                </div>
+              </div>
+              <div class="font-semibold text-slate-900">{{ formatMoney(o.amount, o.currency) }}</div>
+              <div class="flex items-center gap-2">
+                <button
+                  (click)="openConfirm(o)"
+                  [disabled]="isWorking"
+                  class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Confirm
+                </button>
+                <button
+                  (click)="omit(o)"
+                  [disabled]="isWorking"
+                  class="rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700 disabled:opacity-50"
+                >
+                  Omit
+                </button>
+              </div>
+            </li>
+          </ul>
+        </ng-container>
+
+        <!-- Confirmed -->
+        <ng-container *ngIf="grouped().confirmed.length > 0">
+          <div class="flex items-center gap-2 border-t border-slate-100 bg-emerald-50/40 px-5 py-2">
+            <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Confirmed</span>
+            <span class="text-xs text-slate-500">{{ grouped().confirmed.length }}</span>
+          </div>
+          <ul class="divide-y divide-slate-100">
+            <li *ngFor="let o of grouped().confirmed" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+              <div class="flex min-w-0 flex-1 items-center gap-2">
+                <span class="text-emerald-600">✓</span>
+                <div class="min-w-0">
+                  <div class="font-medium text-slate-900">{{ resolvePlannedName(o) }}</div>
+                  <div class="text-xs text-slate-500">
+                    Received {{ formatShortDate(o.date) }} · {{ resolveAccountName(o) }}
+                  </div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-semibold text-emerald-700">
+                  {{ formatMoney(o.receivedAmount ?? o.amount, o.currency) }}
+                </div>
+                <div *ngIf="(o.feeAmount ?? 0) > 0" class="text-[11px] text-rose-600">
+                  Fees: {{ formatMoney(o.feeAmount ?? 0, o.currency) }}
+                </div>
+              </div>
+            </li>
+          </ul>
+        </ng-container>
+
+        <!-- Omitted -->
+        <ng-container *ngIf="grouped().omitted.length > 0">
+          <div class="flex items-center gap-2 border-t border-slate-100 px-5 py-2">
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-600">Omitted</span>
+            <span class="text-xs text-slate-500">{{ grouped().omitted.length }}</span>
+          </div>
+          <ul class="divide-y divide-slate-100">
+            <li *ngFor="let o of grouped().omitted" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-slate-400">
+              <div class="min-w-0 flex-1">
+                <div class="line-through">{{ resolvePlannedName(o) }}</div>
+                <div class="text-xs">{{ formatShortDate(o.date) }} · {{ resolveAccountName(o) }}</div>
+              </div>
+              <div class="line-through">{{ formatMoney(o.amount, o.currency) }}</div>
+            </li>
+          </ul>
+        </ng-container>
+
+        <div *ngIf="occurrences.length === 0" class="px-5 py-10 text-center text-sm text-slate-500">
+          No planned income for this month. Add a recurring source below.
+        </div>
+      </section>
+
+      <!-- BY ACCOUNT -->
+      <section *ngIf="(summary?.byAccount?.length || 0) > 0" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="text-sm font-semibold text-slate-900">By account</div>
+        <div class="mt-4 space-y-4">
+          <div *ngFor="let a of summary?.byAccount || []">
+            <div class="flex items-center justify-between text-sm">
+              <span class="font-medium text-slate-900">{{ a.accountName }}</span>
+              <span class="text-slate-600">
+                <span class="font-semibold text-emerald-700">{{ formatMoney(a.confirmedTotal, a.currency) }}</span>
+                <span class="text-slate-400"> / {{ formatMoney(a.plannedTotal, a.currency) }}</span>
+              </span>
+            </div>
+            <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div class="h-full bg-emerald-500 transition-all" [style.width.%]="accountPercent(a)"></div>
+            </div>
+            <div *ngIf="a.variance !== 0" class="mt-1 text-[11px]"
+              [ngClass]="a.variance > 0 ? 'text-rose-600' : 'text-emerald-600'">
+              {{ a.variance > 0 ? 'Missing' : 'Surplus' }} {{ formatMoney(absVariance(a.variance), a.currency) }}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RECURRING SOURCES (config) -->
+      <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">Recurring sources</div>
+            <div class="text-xs text-slate-500">
+              Templates that generate planned occurrences each month.
+            </div>
+          </div>
+          <button
+            (click)="openCreate()"
+            class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+          >
+            + Add source
+          </button>
+        </div>
+
+        <div *ngIf="plannedIncomes.length === 0" class="px-5 py-10 text-center text-sm text-slate-500">
+          No recurring sources yet. Add one to start tracking planned income.
+        </div>
+
+        <ul *ngIf="plannedIncomes.length > 0" class="divide-y divide-slate-100">
+          <li *ngFor="let s of plannedIncomes" class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-medium text-slate-900">{{ s.name }}</span>
+                <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
+                  [ngClass]="s.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                  {{ s.isActive ? 'Active' : 'Inactive' }}
                 </span>
-              </td>
-              <td class="py-3 text-right">
-                <app-action-menu [items]="sourceActions(item)" />
-              </td>
-            </tr>
-            <tr *ngIf="plannedIncomes.length === 0">
-              <td colspan="7" class="py-4 text-center text-sm text-slate-500">No planned income</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              </div>
+              <div class="mt-1 text-xs text-slate-500">
+                {{ resolveAccountName(s) }} · {{ resolveCategoryName(s) }} · day{{ s.daysOfMonth.length === 1 ? '' : 's' }} {{ s.daysOfMonth.join(', ') }}
+              </div>
+            </div>
+            <div class="text-right text-sm font-semibold text-slate-900">
+              {{ formatMoney(s.amount, s.currency) }}
+            </div>
+            <app-action-menu [items]="sourceActions(s)" />
+          </li>
+        </ul>
+      </section>
     </div>
 
     <div
@@ -756,5 +856,76 @@ export class PlannedIncomesComponent implements OnInit {
       return 0;
     }
     return this.includeContracts ? this.projection.totalNio : this.projection.plannedNio;
+  }
+
+  // ----- new helpers for revamped UI -----
+  monthLabel(): string {
+    const [yearStr, monthStr] = this.selectedMonth.split('-');
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1;
+    if (Number.isNaN(year) || Number.isNaN(monthIndex)) return this.selectedMonth;
+    return new Date(year, monthIndex, 1).toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  confirmationProgress() {
+    const total = this.occurrences.length;
+    const confirmed = this.occurrences.filter((o) => o.status === 'confirmed').length;
+    const percent = total === 0 ? 0 : Math.round((confirmed / total) * 100);
+    return { confirmed, total, percent };
+  }
+
+  daysOverdue(date?: string): number {
+    if (!date) return 0;
+    const d = new Date(date).getTime();
+    if (Number.isNaN(d)) return 0;
+    return Math.max(0, Math.floor((Date.now() - d) / (24 * 60 * 60 * 1000)));
+  }
+
+  grouped() {
+    const now = Date.now();
+    const week = now + 7 * 24 * 60 * 60 * 1000;
+    const groups = {
+      overdue: [] as PlannedIncomeOccurrence[],
+      thisWeek: [] as PlannedIncomeOccurrence[],
+      later: [] as PlannedIncomeOccurrence[],
+      confirmed: [] as PlannedIncomeOccurrence[],
+      omitted: [] as PlannedIncomeOccurrence[],
+    };
+    for (const o of this.occurrences) {
+      const t = new Date(o.date).getTime();
+      if (o.status === 'confirmed') groups.confirmed.push(o);
+      else if (o.status === 'omitted') groups.omitted.push(o);
+      else if (Number.isNaN(t)) groups.later.push(o);
+      else if (t < now) groups.overdue.push(o);
+      else if (t <= week) groups.thisWeek.push(o);
+      else groups.later.push(o);
+    }
+    const byDate = (a: PlannedIncomeOccurrence, b: PlannedIncomeOccurrence) =>
+      a.date.localeCompare(b.date);
+    groups.overdue.sort(byDate);
+    groups.thisWeek.sort(byDate);
+    groups.later.sort(byDate);
+    groups.confirmed.sort(byDate);
+    groups.omitted.sort(byDate);
+    return groups;
+  }
+
+  accountPercent(a: { plannedTotal: number; confirmedTotal: number }) {
+    if (!a.plannedTotal) return 0;
+    return Math.min(100, Math.round((a.confirmedTotal / a.plannedTotal) * 100));
+  }
+
+  absVariance(v: number) {
+    return Math.abs(v);
+  }
+
+  formatShortDate(date?: string) {
+    if (!date) return '—';
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 }
