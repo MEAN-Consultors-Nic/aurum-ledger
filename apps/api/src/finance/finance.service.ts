@@ -16,32 +16,37 @@ export class FinanceService {
   ) {}
 
   async overview() {
-    const [accountTotals, txTotals] = await Promise.all([
-      this.accountModel.aggregate([
-        { $match: { deletedAt: { $exists: false } } },
-        { $group: { _id: '$currency', total: { $sum: '$initialBalance' } } },
-      ]),
-      this.transactionModel.aggregate([
-        { $match: { voidedAt: { $exists: false } } },
-        {
-          $group: {
-            _id: '$currency',
-            total: {
-              $sum: {
-                $cond: [{ $eq: ['$flow', 'in'] }, '$amount', { $multiply: ['$amount', -1] }],
-              },
+    // Only count transactions whose accountId points to a live (non-deleted) account.
+    // Otherwise a soft-deleted account's transactions would inflate the dashboard's
+    // 'Cash on hand' while its initial balance is excluded, causing the dashboard
+    // to disagree with /accounts.
+    const activeAccounts = await this.accountModel
+      .find({ deletedAt: { $exists: false } })
+      .select('_id currency initialBalance');
+    const accountIds = activeAccounts.map((a) => a._id);
+
+    const txTotals = await this.transactionModel.aggregate([
+      {
+        $match: {
+          voidedAt: { $exists: false },
+          accountId: { $in: accountIds },
+        },
+      },
+      {
+        $group: {
+          _id: '$currency',
+          total: {
+            $sum: {
+              $cond: [{ $eq: ['$flow', 'in'] }, '$amount', { $multiply: ['$amount', -1] }],
             },
           },
         },
-      ]),
+      },
     ]);
 
-    const totals = {
-      USD: 0,
-      NIO: 0,
-    };
-    accountTotals.forEach((item) => {
-      totals[item._id as 'USD' | 'NIO'] += item.total || 0;
+    const totals: Record<'USD' | 'NIO', number> = { USD: 0, NIO: 0 };
+    activeAccounts.forEach((a) => {
+      totals[a.currency as 'USD' | 'NIO'] += a.initialBalance || 0;
     });
     txTotals.forEach((item) => {
       totals[item._id as 'USD' | 'NIO'] += item.total || 0;
