@@ -87,7 +87,7 @@ export class EstimatesService {
       throw new BadRequestException('Converted estimates cannot be updated');
     }
 
-    const { clientId, serviceId, ...restDto } = dto;
+    const { clientId, serviceId, validUntil, ...restDto } = dto;
     const payload: Partial<Estimate> = {
       ...restDto,
       updatedBy: userId,
@@ -98,6 +98,9 @@ export class EstimatesService {
     }
     if (serviceId) {
       payload.serviceId = new Types.ObjectId(serviceId);
+    }
+    if (validUntil !== undefined) {
+      payload.validUntil = validUntil ? new Date(validUntil) : undefined;
     }
 
     const updated = await this.estimateModel.findByIdAndUpdate(id, payload, { new: true });

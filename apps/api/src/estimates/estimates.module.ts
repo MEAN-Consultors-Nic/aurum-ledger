@@ -12,5 +12,6 @@ import { Estimate, EstimateSchema } from './schemas/estimate.schema';
   ],
   controllers: [EstimatesController],
   providers: [EstimatesService],
+  exports: [EstimatesService],
 })
 export class EstimatesModule {}

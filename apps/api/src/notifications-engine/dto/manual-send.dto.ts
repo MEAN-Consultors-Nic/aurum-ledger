@@ -4,8 +4,8 @@ export class ManualSendDto {
   @IsMongoId()
   templateId: string;
 
-  @IsIn(['contract', 'project', 'client'])
-  contextType: 'contract' | 'project' | 'client';
+  @IsIn(['contract', 'project', 'client', 'estimate'])
+  contextType: 'contract' | 'project' | 'client' | 'estimate';
 
   @IsString()
   contextId: string;

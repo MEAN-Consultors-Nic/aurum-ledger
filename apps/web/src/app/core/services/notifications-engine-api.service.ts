@@ -64,7 +64,7 @@ export class NotificationsEngineApiService {
 
   manualSend(payload: {
     templateId: string;
-    contextType: 'contract' | 'project' | 'client';
+    contextType: 'contract' | 'project' | 'client' | 'estimate';
     contextId: string;
     recipients: string[];
     note?: string;

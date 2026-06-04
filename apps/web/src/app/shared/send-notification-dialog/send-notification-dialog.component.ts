@@ -8,7 +8,7 @@ export type SendNotificationConfig = {
   title: string;
   subtitle?: string;
   eventKey: string;
-  contextType: 'contract' | 'project' | 'client';
+  contextType: 'contract' | 'project' | 'client' | 'estimate';
   contextId: string;
   defaultRecipients: string[];      // expressions e.g. 'contract.client', 'custom:foo@x.com'
   recipientSuggestions?: {

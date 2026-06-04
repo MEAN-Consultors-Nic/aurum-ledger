@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ClientsModule } from '../clients/clients.module';
 import { ContractsModule } from '../contracts/contracts.module';
 import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
+import { EstimatesModule } from '../estimates/estimates.module';
 import { PlannedIncomeOccurrence, PlannedIncomeOccurrenceSchema } from '../planned-incomes/schemas/planned-income-occurrence.schema';
 import { Project, ProjectSchema } from '../projects/schemas/project.schema';
 import { ProjectTask, ProjectTaskSchema } from '../projects/schemas/project-task.schema';
@@ -38,6 +39,7 @@ import { TemplateRendererService } from './template-renderer.service';
     ClientsModule,
     ProjectsModule,
     ContractsModule,
+    EstimatesModule,
   ],
   controllers: [NotificationsEngineController],
   providers: [

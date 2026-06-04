@@ -13,6 +13,12 @@ export type EstimateItem = {
   currency: 'USD' | 'NIO';
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
   notes?: string;
+  scope?: string;
+  deliverables?: string[];
+  terms?: string;
+  validUntil?: string;
+  sentAt?: string;
+  sentBy?: string;
   conversionNotes?: string;
   convertedContractId?: string;
   convertedAt?: string;

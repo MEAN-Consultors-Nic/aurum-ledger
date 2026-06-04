@@ -6,6 +6,7 @@ import { UsersService } from '../users/users.service';
 import { ClientsService } from '../clients/clients.service';
 import { ProjectsService } from '../projects/projects.service';
 import { ContractsService } from '../contracts/contracts.service';
+import { EstimatesService } from '../estimates/estimates.service';
 import { EVENT_CATALOG, findEventByKey } from './event-catalog';
 import { SEED_GROUPS, SEED_TEMPLATES } from './seed-templates';
 import { ManualSendDto } from './dto/manual-send.dto';
@@ -44,6 +45,7 @@ export class NotificationsEngineService implements OnModuleInit {
     private readonly clientsService: ClientsService,
     private readonly projectsService: ProjectsService,
     private readonly contractsService: ContractsService,
+    private readonly estimatesService: EstimatesService,
   ) {}
 
   async onModuleInit() {
@@ -191,7 +193,7 @@ export class NotificationsEngineService implements OnModuleInit {
   }
 
   private async buildManualContext(
-    contextType: 'contract' | 'project' | 'client',
+    contextType: 'contract' | 'project' | 'client' | 'estimate',
     contextId: string,
   ): Promise<{
     context: Record<string, unknown>;
@@ -249,6 +251,41 @@ export class NotificationsEngineService implements OnModuleInit {
       return {
         context: { client: { name: client.name, email: client.email } },
         clientId: client._id as Types.ObjectId,
+      };
+    }
+    if (contextType === 'estimate') {
+      const estimate = (await this.estimatesService.findById(contextId)) as any;
+      if (!estimate) {
+        throw new BadRequestException('Estimate not found');
+      }
+      const clientObj =
+        estimate.clientId && typeof estimate.clientId === 'object' ? estimate.clientId : null;
+      const serviceObj =
+        estimate.serviceId && typeof estimate.serviceId === 'object' ? estimate.serviceId : null;
+      const sentAt: Date | undefined = estimate.sentAt ? new Date(estimate.sentAt) : undefined;
+      const daysSinceSent = sentAt
+        ? Math.ceil((now.getTime() - sentAt.getTime()) / DAY_MS)
+        : 0;
+      return {
+        context: {
+          client: clientObj
+            ? { name: clientObj.name, email: clientObj.email }
+            : { name: '(client)', email: '' },
+          estimate: {
+            title: estimate.title,
+            amount: estimate.amount,
+            currency: estimate.currency,
+            billingPeriod: estimate.billingPeriod,
+            scope: estimate.scope,
+            deliverables: estimate.deliverables ?? [],
+            terms: estimate.terms,
+            validUntil: estimate.validUntil,
+            notes: estimate.notes,
+          },
+          service: serviceObj ? { name: serviceObj.name } : { name: '' },
+          daysSinceSent,
+        },
+        clientId: clientObj ? (clientObj._id as Types.ObjectId) : undefined,
       };
     }
     throw new BadRequestException(`Unsupported contextType: ${contextType}`);

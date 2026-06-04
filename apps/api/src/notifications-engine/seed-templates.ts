@@ -17,6 +17,7 @@ export type SeedGroup = {
 };
 
 export const SEED_GROUPS: SeedGroup[] = [
+  { key: 'estimates', name: 'Estimates', description: 'Proposals sent to clients', color: 'sky', order: 0 },
   { key: 'contracts', name: 'Contracts', description: 'Expiry & lifecycle reminders', color: 'indigo', order: 1 },
   { key: 'payments', name: 'Payments', description: 'Overdue & collections', color: 'rose', order: 2 },
   { key: 'projects', name: 'Projects', description: 'Operational alerts', color: 'emerald', order: 3 },
@@ -25,6 +26,64 @@ export const SEED_GROUPS: SeedGroup[] = [
 ];
 
 export const SEED_TEMPLATES: SeedTemplate[] = [
+  {
+    key: 'estimate-sent',
+    group: 'estimates',
+    name: 'Estimate proposal (to client)',
+    description: 'Send the full estimate to the client with scope, deliverables, terms and validity.',
+    eventKey: 'estimate.sent',
+    subject: 'Estimate: {{estimate.title}} — {{money estimate.amount estimate.currency}}',
+    bodyHtml: `<h2 style="margin:0 0 6px 0;font-size:22px;color:#0f172a;">Hi {{client.name}},</h2>
+<p style="margin:0 0 18px 0;color:#475569;">Thanks for the conversation. Here's the proposal for your review.</p>
+
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px 20px;margin-bottom:18px;">
+  <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#64748b;margin-bottom:6px;">Estimate</div>
+  <div style="font-size:20px;font-weight:600;color:#0f172a;margin-bottom:4px;">{{estimate.title}}</div>
+  <div style="font-size:14px;color:#475569;">Service: {{service.name}}</div>
+  <div style="font-size:14px;color:#475569;">Billing: {{estimate.billingPeriod}}</div>
+  {{#if estimate.validUntil}}
+  <div style="font-size:14px;color:#475569;">Valid until: <strong>{{date estimate.validUntil}}</strong></div>
+  {{/if}}
+  <div style="margin-top:14px;font-size:30px;font-weight:700;color:#0f172a;">{{money estimate.amount estimate.currency}}</div>
+</div>
+
+{{#if estimate.scope}}
+<h3 style="margin:24px 0 8px 0;font-size:15px;color:#0f172a;letter-spacing:0.02em;text-transform:uppercase;">Scope</h3>
+<div style="color:#1e293b;line-height:1.6;white-space:pre-wrap;">{{estimate.scope}}</div>
+{{/if}}
+
+{{#if estimate.deliverables}}
+<h3 style="margin:24px 0 8px 0;font-size:15px;color:#0f172a;letter-spacing:0.02em;text-transform:uppercase;">Deliverables</h3>
+<ul style="margin:0;padding-left:20px;color:#1e293b;line-height:1.7;">
+  {{#each estimate.deliverables}}
+  <li>{{this}}</li>
+  {{/each}}
+</ul>
+{{/if}}
+
+{{#if estimate.terms}}
+<h3 style="margin:24px 0 8px 0;font-size:15px;color:#0f172a;letter-spacing:0.02em;text-transform:uppercase;">Terms</h3>
+<div style="color:#475569;font-size:13px;line-height:1.6;white-space:pre-wrap;">{{estimate.terms}}</div>
+{{/if}}
+
+<p style="margin:28px 0 8px 0;color:#1e293b;">Let us know if you'd like to adjust anything or if you're ready to proceed.</p>
+<p style="margin:0;color:#1e293b;">Best,<br><strong>MEAN Consultors</strong></p>`,
+  },
+  {
+    key: 'estimate-reminder',
+    group: 'estimates',
+    name: 'Estimate reminder (to client)',
+    description: 'Polite follow-up on a pending estimate.',
+    eventKey: 'estimate.reminder',
+    subject: 'Quick follow-up on {{estimate.title}}',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;color:#0f172a;">Hi {{client.name}},</h2>
+<p>Just a quick follow-up on the estimate <strong>{{estimate.title}}</strong> for <strong>{{money estimate.amount estimate.currency}}</strong>.</p>
+{{#if estimate.validUntil}}
+<p>This proposal is valid until <strong>{{date estimate.validUntil}}</strong>.</p>
+{{/if}}
+<p>Let us know if you have any questions, need adjustments, or are ready to proceed. We'd love to help.</p>
+<p>Best,<br>MEAN Consultors</p>`,
+  },
   {
     key: 'contract-expiring',
     group: 'contracts',

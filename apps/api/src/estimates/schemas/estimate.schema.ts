@@ -30,6 +30,24 @@ export class Estimate {
   notes?: string;
 
   @Prop()
+  scope?: string;
+
+  @Prop({ type: [String], default: [] })
+  deliverables: string[];
+
+  @Prop()
+  terms?: string;
+
+  @Prop()
+  validUntil?: Date;
+
+  @Prop()
+  sentAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  sentBy?: Types.ObjectId;
+
+  @Prop()
   conversionNotes?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Contract' })

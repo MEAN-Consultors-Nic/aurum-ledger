@@ -1,5 +1,15 @@
 import { Transform, Type } from 'class-transformer';
-import { IsEnum, IsIn, IsMongoId, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateEstimateDto {
   @IsMongoId()
@@ -32,4 +42,21 @@ export class CreateEstimateDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsString()
+  scope?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  deliverables?: string[];
+
+  @IsOptional()
+  @IsString()
+  terms?: string;
+
+  @IsOptional()
+  @IsDateString()
+  validUntil?: string;
 }

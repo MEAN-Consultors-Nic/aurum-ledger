@@ -8,11 +8,21 @@ import { ClientItem } from '../../core/models/client.model';
 import { EstimateItem } from '../../core/models/estimate.model';
 import { ServiceItem } from '../../core/models/service.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
+import {
+  SendNotificationDialogComponent,
+  SendNotificationConfig,
+} from '../../shared/send-notification-dialog/send-notification-dialog.component';
 
 @Component({
   selector: 'app-estimates',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    ActionMenuComponent,
+    SendNotificationDialogComponent,
+  ],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -205,12 +215,78 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
             </div>
           </div>
 
+          <!-- Scope -->
           <div>
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Notes</label>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Scope of work</label>
+            <textarea
+              formControlName="scope"
+              rows="4"
+              placeholder="Describe what's included in this proposal…"
+              class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            ></textarea>
+          </div>
+
+          <!-- Deliverables -->
+          <div>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Deliverables</label>
+              <button
+                type="button"
+                class="text-xs text-slate-700 hover:text-slate-900"
+                (click)="addDeliverable()"
+              >+ Add deliverable</button>
+            </div>
+            <div *ngIf="deliverables.length === 0" class="mt-2 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              No deliverables yet. Add what the client will receive (e.g. "Live website on production", "Admin training session").
+            </div>
+            <div class="mt-2 space-y-1.5">
+              <div *ngFor="let d of deliverables; let i = index; trackBy: trackByIndex" class="flex items-center gap-2">
+                <input
+                  [(ngModel)]="deliverables[i]"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="e.g. Domain configured + SSL"
+                  class="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+                />
+                <button
+                  type="button"
+                  class="text-xs text-rose-600 hover:text-rose-800"
+                  (click)="removeDeliverable(i)"
+                >Remove</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Terms + Valid until -->
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="md:col-span-2">
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Terms / conditions</label>
+              <textarea
+                formControlName="terms"
+                rows="3"
+                placeholder="Payment terms, retainer requirements, refund policy…"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              ></textarea>
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Valid until</label>
+              <input
+                formControlName="validUntil"
+                type="date"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <div class="mt-1 text-[11px] text-slate-500">
+                After this date the estimate is considered expired.
+              </div>
+            </div>
+          </div>
+
+          <!-- Internal notes -->
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Internal notes (not sent to client)</label>
             <textarea
               formControlName="notes"
               class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              rows="3"
+              rows="2"
             ></textarea>
           </div>
 
@@ -340,6 +416,13 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
         </div>
       </div>
     </div>
+
+    <!-- Send notification dialog -->
+    <app-send-notification-dialog
+      [open]="isSendNotifOpen"
+      [config]="sendNotifConfig"
+      (closed)="closeSendNotif()"
+    ></app-send-notification-dialog>
   `,
 })
 export class EstimatesComponent implements OnInit {
@@ -372,6 +455,12 @@ export class EstimatesComponent implements OnInit {
   form: FormGroup;
   convertForm: FormGroup;
 
+  deliverables: string[] = [];
+
+  // Send notification dialog state
+  isSendNotifOpen = false;
+  sendNotifConfig: SendNotificationConfig | null = null;
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly estimatesApi: EstimatesApiService,
@@ -387,6 +476,9 @@ export class EstimatesComponent implements OnInit {
       currency: ['USD', Validators.required],
       status: ['draft', Validators.required],
       notes: [''],
+      scope: [''],
+      terms: [''],
+      validUntil: [''],
     });
 
     this.convertForm = this.fb.group({
@@ -443,6 +535,7 @@ export class EstimatesComponent implements OnInit {
   openCreate() {
     this.editing = null;
     this.validationError = '';
+    this.deliverables = [];
     this.form.reset({
       clientId: '',
       serviceId: '',
@@ -452,6 +545,9 @@ export class EstimatesComponent implements OnInit {
       currency: 'USD',
       status: 'draft',
       notes: '',
+      scope: '',
+      terms: '',
+      validUntil: '',
     });
     this.isModalOpen = true;
   }
@@ -466,6 +562,20 @@ export class EstimatesComponent implements OnInit {
       action: () => this.openEdit(item),
       disabled: item.status === 'converted',
     });
+    // Send actions — context-aware
+    const canSend = item.status !== 'converted' && item.status !== 'rejected';
+    if (canSend) {
+      items.push({
+        label: 'Send to client',
+        action: () => this.openSendNotification(item, 'estimate.sent', 'Send estimate to client'),
+      });
+    }
+    if (item.status === 'sent') {
+      items.push({
+        label: 'Send reminder',
+        action: () => this.openSendNotification(item, 'estimate.reminder', 'Send estimate reminder'),
+      });
+    }
     if (item.status !== 'converted' && item.status !== 'rejected' && item.status !== 'expired') {
       items.push({ label: 'Convert to contract', action: () => this.openConvert(item) });
     }
@@ -476,6 +586,7 @@ export class EstimatesComponent implements OnInit {
   openEdit(item: EstimateItem) {
     this.editing = item;
     this.validationError = '';
+    this.deliverables = [...(item.deliverables ?? [])];
     this.form.reset({
       clientId: this.resolveId(item.clientId),
       serviceId: this.resolveId(item.serviceId),
@@ -485,8 +596,51 @@ export class EstimatesComponent implements OnInit {
       currency: item.currency,
       status: item.status === 'converted' ? 'accepted' : item.status,
       notes: item.notes ?? '',
+      scope: item.scope ?? '',
+      terms: item.terms ?? '',
+      validUntil: this.toDateInput(item.validUntil),
     });
     this.isModalOpen = true;
+  }
+
+  addDeliverable() {
+    this.deliverables = [...this.deliverables, ''];
+  }
+  removeDeliverable(index: number) {
+    this.deliverables = this.deliverables.filter((_, i) => i !== index);
+  }
+  trackByIndex(i: number) {
+    return i;
+  }
+
+  openSendNotification(item: EstimateItem, eventKey: string, title: string) {
+    const clientName = typeof item.clientId === 'string' ? '—' : item.clientId.name;
+    const subtitle = `${clientName} · ${item.title || 'estimate'} · ${item.currency} ${item.amount.toFixed(2)}`;
+    this.sendNotifConfig = {
+      title,
+      subtitle,
+      eventKey,
+      contextType: 'estimate',
+      contextId: item._id,
+      defaultRecipients: ['contract.client'],
+      recipientSuggestions: [
+        { label: 'Client', expression: 'contract.client', description: 'Email on file for the client' },
+        { label: 'All admins', expression: 'admin', description: 'Active admin users' },
+      ],
+    };
+    this.isSendNotifOpen = true;
+  }
+
+  closeSendNotif() {
+    this.isSendNotifOpen = false;
+    this.sendNotifConfig = null;
+  }
+
+  toDateInput(date?: string) {
+    if (!date) return '';
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   closeModal() {
@@ -501,6 +655,9 @@ export class EstimatesComponent implements OnInit {
     this.isSaving = true;
     this.validationError = '';
 
+    const cleanDeliverables = this.deliverables
+      .map((d) => (d ?? '').trim())
+      .filter((d) => d.length > 0);
     const payload = {
       clientId: this.form.value.clientId ?? '',
       serviceId: this.form.value.serviceId ?? '',
@@ -510,6 +667,10 @@ export class EstimatesComponent implements OnInit {
       currency: this.form.value.currency ?? 'USD',
       status: this.form.value.status ?? 'draft',
       notes: this.form.value.notes || undefined,
+      scope: this.form.value.scope || undefined,
+      terms: this.form.value.terms || undefined,
+      validUntil: this.form.value.validUntil || undefined,
+      deliverables: cleanDeliverables,
     };
 
     if (this.editing) {
