@@ -265,6 +265,22 @@ import {
             ></textarea>
           </div>
 
+          <!-- Auto-create project toggle (only relevant when creating a new contract) -->
+          <label *ngIf="!editing" class="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <input
+              type="checkbox"
+              formControlName="createProject"
+              class="mt-0.5 h-4 w-4 rounded border-slate-300"
+            />
+            <div>
+              <div class="text-sm font-medium text-slate-900">Create project automatically</div>
+              <div class="text-xs text-slate-500">
+                Spawn an associated project (tasks, deliverables, credentials) when this contract is active.
+                Uncheck for contracts where no project is needed.
+              </div>
+            </div>
+          </label>
+
           <div *ngIf="validationError" class="text-sm text-red-600">{{ validationError }}</div>
 
           <div class="flex justify-end gap-3">
@@ -391,6 +407,7 @@ export class ContractsComponent implements OnInit {
       endDate: [''],
       status: ['active'],
       notes: [''],
+      createProject: [true],
     });
   }
 
@@ -450,6 +467,7 @@ export class ContractsComponent implements OnInit {
       endDate: '',
       status: 'active',
       notes: '',
+      createProject: true,
     });
     this.isModalOpen = true;
   }
@@ -468,6 +486,7 @@ export class ContractsComponent implements OnInit {
       endDate: this.toDateInput(item.endDate),
       status: item.status,
       notes: item.notes ?? '',
+      createProject: true, // irrelevant when editing; we hide the checkbox in template
     });
     this.isModalOpen = true;
   }
@@ -513,6 +532,8 @@ export class ContractsComponent implements OnInit {
       endDate,
       status: (this.form.value.status || 'active') as 'active' | 'expired' | 'cancelled',
       notes: this.form.value.notes || undefined,
+      // Only relevant on create. The update endpoint ignores unknown fields.
+      createProject: this.form.value.createProject !== false,
     };
 
     if (this.editing) {

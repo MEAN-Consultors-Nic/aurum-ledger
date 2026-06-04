@@ -1,5 +1,15 @@
 import { Transform, Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsIn, IsMongoId, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class CreateContractDto {
   @IsMongoId()
@@ -39,4 +49,9 @@ export class CreateContractDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // When true (default), an associated Project is auto-created for active contracts.
+  @IsOptional()
+  @IsBoolean()
+  createProject?: boolean;
 }

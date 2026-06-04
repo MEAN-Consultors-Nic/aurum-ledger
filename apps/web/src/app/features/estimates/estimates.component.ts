@@ -370,6 +370,20 @@ import {
             </div>
           </div>
 
+          <label class="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <input
+              type="checkbox"
+              formControlName="createProject"
+              class="mt-0.5 h-4 w-4 rounded border-slate-300"
+            />
+            <div>
+              <div class="text-sm font-medium text-slate-900">Create project automatically</div>
+              <div class="text-xs text-slate-500">
+                Spawn an associated project for this contract (tasks, deliverables, credentials). Uncheck to skip.
+              </div>
+            </div>
+          </label>
+
           <div *ngIf="convertError" class="text-sm text-red-600">{{ convertError }}</div>
 
           <div class="flex justify-end gap-3">
@@ -490,6 +504,7 @@ export class EstimatesComponent implements OnInit {
       endDate: [''],
       contractNotes: [''],
       conversionNotes: [''],
+      createProject: [true],
     });
   }
 
@@ -690,6 +705,7 @@ export class EstimatesComponent implements OnInit {
       endDate: '',
       contractNotes: item.notes ?? '',
       conversionNotes: '',
+      createProject: true,
     });
     this.isConvertOpen = true;
   }
@@ -763,6 +779,7 @@ export class EstimatesComponent implements OnInit {
       endDate: this.convertForm.value.endDate || undefined,
       contractNotes: this.convertForm.value.contractNotes || undefined,
       conversionNotes: this.convertForm.value.conversionNotes || undefined,
+      createProject: this.convertForm.value.createProject !== false,
     };
 
     this.estimatesApi.convert(this.converting._id, payload).subscribe({

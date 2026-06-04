@@ -1,5 +1,14 @@
 import { Transform, Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsIn, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class ConvertEstimateDto {
   @IsOptional()
@@ -31,4 +40,9 @@ export class ConvertEstimateDto {
   @IsOptional()
   @IsString()
   conversionNotes?: string;
+
+  // When true (default), an associated Project is auto-created from the contract.
+  @IsOptional()
+  @IsBoolean()
+  createProject?: boolean;
 }

@@ -63,6 +63,7 @@ export class EstimatesApiService {
     endDate?: string;
     contractNotes?: string;
     conversionNotes?: string;
+    createProject?: boolean;
   }) {
     return this.http.post<EstimateConvertResponse>(`${environment.apiUrl}/estimates/${id}/convert`, payload);
   }

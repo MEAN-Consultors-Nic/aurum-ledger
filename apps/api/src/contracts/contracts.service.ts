@@ -22,8 +22,11 @@ export class ContractsService {
   async create(dto: CreateContractDto, userId?: Types.ObjectId) {
     this.validateDates(dto.billingPeriod, dto.startDate, dto.endDate);
 
+    const { createProject, ...contractFields } = dto;
+    const shouldCreateProject = createProject !== false; // default true
+
     const contract = await this.contractModel.create({
-      ...dto,
+      ...contractFields,
       clientId: new Types.ObjectId(dto.clientId),
       serviceId: new Types.ObjectId(dto.serviceId),
       startDate: new Date(dto.startDate),
@@ -36,7 +39,7 @@ export class ContractsService {
       paymentCount: 0,
     });
 
-    if (contract.status === 'active') {
+    if (contract.status === 'active' && shouldCreateProject) {
       this.spawnProjectFor(contract, userId).catch((err) => {
         this.logger.error(`Failed to spawn project for contract ${contract._id}: ${err.message}`);
       });

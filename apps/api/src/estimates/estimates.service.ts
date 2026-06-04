@@ -153,6 +153,7 @@ export class EstimatesService {
         startDate: dto.startDate,
         endDate: dto.endDate,
         notes: contractNotes,
+        createProject: dto.createProject,
       },
       userId,
     );

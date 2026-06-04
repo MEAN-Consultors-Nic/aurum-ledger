@@ -59,6 +59,7 @@ export class ContractsApiService {
     endDate?: string;
     status?: 'active' | 'expired' | 'cancelled';
     notes?: string;
+    createProject?: boolean;
   }) {
     return this.http.post<ContractItem>(`${environment.apiUrl}/contracts`, payload);
   }
