@@ -530,7 +530,12 @@ export class EstimateEditorComponent implements OnInit {
         action: () => this.goToConvertFromList(),
       });
     }
-    items.push({ label: 'Delete estimate', action: () => this.remove(), danger: true });
+    items.push({
+      label: 'Delete estimate',
+      action: () => this.remove(),
+      danger: true,
+      disabled: status === 'converted',
+    });
     return items;
   }
 
@@ -539,17 +544,13 @@ export class EstimateEditorComponent implements OnInit {
     this.router.navigate(['/estimates'], { queryParams: { convert: this.estimateId } });
   }
 
-  async remove() {
+  remove() {
     if (!this.estimateId) return;
-    const ok = await this.confirmDialog.open({
-      title: 'Delete estimate',
-      message: `Delete this estimate? This cannot be undone.`,
-      confirmText: 'Delete',
-      danger: true,
-    });
-    if (!ok) return;
     this.estimatesApi.remove(this.estimateId).subscribe({
       next: () => this.router.navigate(['/estimates']),
+      error: (err) => {
+        this.validationError = err?.error?.message ?? 'Unable to delete estimate';
+      },
     });
   }
 

@@ -580,7 +580,12 @@ export class EstimatesComponent implements OnInit {
     if (item.status !== 'converted' && item.status !== 'rejected' && item.status !== 'expired') {
       items.push({ label: 'Convert to contract', action: () => this.openConvert(item) });
     }
-    items.push({ label: 'Delete', action: () => this.remove(item), danger: true });
+    items.push({
+      label: 'Delete',
+      action: () => this.remove(item),
+      danger: true,
+      disabled: item.status === 'converted',
+    });
     return items;
   }
 
@@ -689,8 +694,8 @@ export class EstimatesComponent implements OnInit {
   remove(item: EstimateItem) {
     this.estimatesApi.remove(item._id).subscribe({
       next: () => this.load(),
-      error: () => {
-        this.error = 'Unable to delete estimate';
+      error: (err) => {
+        this.error = err?.error?.message ?? 'Unable to delete estimate';
       },
     });
   }

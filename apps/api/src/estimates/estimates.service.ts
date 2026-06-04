@@ -111,15 +111,22 @@ export class EstimatesService {
   }
 
   async softDelete(id: string, userId?: Types.ObjectId) {
-    const estimate = await this.estimateModel.findOneAndUpdate(
-      { _id: id, deletedAt: { $exists: false } },
-      { deletedAt: new Date(), updatedBy: userId },
-      { new: true },
-    );
-    if (!estimate) {
+    const existing = await this.estimateModel.findOne({
+      _id: id,
+      deletedAt: { $exists: false },
+    });
+    if (!existing) {
       throw new NotFoundException('Estimate not found');
     }
-    return estimate;
+    if (existing.status === 'converted') {
+      throw new BadRequestException(
+        'Converted estimates cannot be deleted because they are linked to an existing contract',
+      );
+    }
+    existing.deletedAt = new Date();
+    existing.updatedBy = userId;
+    await existing.save();
+    return existing;
   }
 
   async convertToContract(id: string, dto: ConvertEstimateDto, userId?: Types.ObjectId) {
