@@ -181,32 +181,70 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
             </div>
           </div>
 
-          <div class="grid gap-4 md:grid-cols-3">
+          <!-- Currency toggle: prominent, since loans can be USD or NIO -->
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Currency</label>
+            <div class="mt-2 flex items-center gap-3">
+              <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  (click)="setCurrency('USD')"
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  [ngClass]="form.value.currency === 'USD' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+                >
+                  USD
+                </button>
+                <button
+                  type="button"
+                  (click)="setCurrency('NIO')"
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  [ngClass]="form.value.currency === 'NIO' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
+                >
+                  NIO (C$)
+                </button>
+              </div>
+              <span class="text-[11px] text-slate-500">
+                Auto-syncs from the selected account.
+              </span>
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2">
             <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Principal</label>
-              <input
-                formControlName="principal"
-                type="number"
-                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Principal · <span class="text-slate-900">{{ form.value.currency || 'USD' }}</span>
+              </label>
+              <div class="relative mt-2">
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-400">
+                  {{ form.value.currency === 'NIO' ? 'C$' : '$' }}
+                </span>
+                <input
+                  formControlName="principal"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full rounded-lg border border-slate-200 px-3 py-2 pl-8 text-sm"
+                />
+              </div>
+              <div class="mt-1 text-[11px] text-slate-500">Total amount of the loan.</div>
             </div>
             <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Installment</label>
-              <input
-                formControlName="installmentAmount"
-                type="number"
-                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Currency</label>
-              <select
-                formControlName="currency"
-                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              >
-                <option value="USD">USD</option>
-                <option value="NIO">NIO</option>
-              </select>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Installment · <span class="text-slate-900">{{ form.value.currency || 'USD' }}</span>
+              </label>
+              <div class="relative mt-2">
+                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-400">
+                  {{ form.value.currency === 'NIO' ? 'C$' : '$' }}
+                </span>
+                <input
+                  formControlName="installmentAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="w-full rounded-lg border border-slate-200 px-3 py-2 pl-8 text-sm"
+                />
+              </div>
+              <div class="mt-1 text-[11px] text-slate-500">Per scheduled payment.</div>
             </div>
           </div>
 
@@ -367,6 +405,10 @@ export class LoansComponent implements OnInit {
     if (account) {
       this.form.patchValue({ currency: account.currency });
     }
+  }
+
+  setCurrency(currency: 'USD' | 'NIO') {
+    this.form.patchValue({ currency });
   }
 
   save() {
