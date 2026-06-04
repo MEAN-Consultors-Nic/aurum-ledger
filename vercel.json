@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "angular",
-  "buildCommand": "pnpm run build",
-  "outputDirectory": "dist/web/browser",
   "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter web run build",
+  "outputDirectory": "apps/web/dist/web/browser",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
