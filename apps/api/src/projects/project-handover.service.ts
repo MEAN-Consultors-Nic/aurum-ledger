@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-// pdfmake ships as CJS; require keeps the constructor reference intact
-// regardless of esModuleInterop config.
-type PdfKitDocument = NodeJS.ReadableStream & { end: () => void };
+// pdfmake 0.3.x exports a configured singleton instance (NOT a constructor).
+// API: setFonts(fonts) → createPdf(definition) → { getBuffer(): Promise<Buffer> }.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const PdfPrinter = require('pdfmake') as new (
-  fonts: Record<string, unknown>,
-) => { createPdfKitDocument(def: unknown): PdfKitDocument };
+const pdfmake = require('pdfmake') as {
+  setFonts(fonts: Record<string, unknown>): void;
+  createPdf(definition: unknown): { getBuffer(): Promise<Buffer> };
+};
 import type {
   Content,
   StyleDictionary,
@@ -35,7 +35,8 @@ const FONTS = {
 
 @Injectable()
 export class ProjectHandoverService {
-  private readonly printer = new PdfPrinter(FONTS);
+  // pdfmake is a process-level singleton in 0.3.x; calling setFonts once is enough.
+  private static fontsRegistered = false;
 
   constructor(
     @InjectModel(Project.name) private readonly projectModel: Model<ProjectDocument>,
@@ -77,7 +78,11 @@ export class ProjectHandoverService {
         : Promise.resolve(null),
     ]);
 
-    const doc = this.buildDocument({
+    if (!ProjectHandoverService.fontsRegistered) {
+      pdfmake.setFonts(FONTS);
+      ProjectHandoverService.fontsRegistered = true;
+    }
+    const definition = this.buildDocument({
       project,
       tasks,
       credentials,
@@ -85,15 +90,7 @@ export class ProjectHandoverService {
       service,
       contract,
     });
-    const pdfDoc = this.printer.createPdfKitDocument(doc);
-
-    const chunks: Buffer[] = [];
-    const buffer = await new Promise<Buffer>((resolve, reject) => {
-      pdfDoc.on('data', (chunk: Buffer) => chunks.push(chunk));
-      pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
-      pdfDoc.on('error', reject);
-      pdfDoc.end();
-    });
+    const buffer = await pdfmake.createPdf(definition).getBuffer();
 
     const slug = this.slug(project.name);
     const date = new Date().toISOString().slice(0, 10);
