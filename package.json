@@ -12,7 +12,9 @@
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
     "test": "pnpm -r run test",
-    "format": "pnpm -r run format"
+    "format": "pnpm -r run format",
+    "start": "pnpm --filter api run start:prod",
+    "heroku-postbuild": "pnpm --filter api run build"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
