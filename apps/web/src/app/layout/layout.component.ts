@@ -63,14 +63,14 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
   imports: [CommonModule, RouterModule, ConfirmDialogComponent, IconComponent],
   template: `
     <div class="min-h-screen bg-slate-50 text-slate-900">
-      <div class="flex">
+      <div class="flex min-h-screen">
         <div
           *ngIf="isMobileNavOpen"
           class="fixed inset-0 z-40 bg-slate-900/60 lg:hidden"
           (click)="closeMobileNav()"
         ></div>
         <aside
-          class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full bg-slate-900 px-4 py-6 text-white transition-transform lg:static lg:translate-x-0"
+          class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full bg-slate-900 px-4 py-6 text-white transition-transform lg:static lg:min-h-screen lg:translate-x-0"
           [class.translate-x-0]="isMobileNavOpen"
         >
           <div class="text-2xl font-semibold tracking-tight">AurumLedger</div>
