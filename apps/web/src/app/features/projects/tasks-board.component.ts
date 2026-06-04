@@ -104,7 +104,7 @@ const COLUMNS: Column[] = [
               (cdkDragStarted)="onDragStarted()"
               (cdkDragEnded)="onDragEnded()"
               (click)="open(task)"
-              class="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-slate-300 hover:shadow"
+              class="cursor-pointer rounded-lg border border-slate-200 bg-white p-3 shadow-sm hover:border-slate-300 hover:shadow"
             >
               <!-- Tags -->
               <div *ngIf="task.tags?.length" class="flex flex-wrap gap-1">
@@ -188,6 +188,11 @@ const COLUMNS: Column[] = [
   `,
   styles: [
     `
+      /* CDK reads computed CSS transitions on the drag preview /
+         placeholder when animating between positions. Any mismatched
+         property/duration list crashes parseCssTimeUnitsToMs, so we
+         keep transitions ONLY on explicit properties (no 'all', no
+         Tailwind's 'transition' shorthand). */
       :host ::ng-deep .cdk-drag-preview {
         box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
         border-radius: 0.5rem;
@@ -196,8 +201,15 @@ const COLUMNS: Column[] = [
       :host ::ng-deep .cdk-drag-placeholder {
         opacity: 0;
       }
-      :host ::ng-deep .cdk-drop-list-dragging .cdk-drag {
+      :host ::ng-deep .cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) {
         transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+      }
+      /* Smooth box-shadow hover only — never transform/opacity, so CDK's
+         CSS parser sees a single matched property/duration pair. */
+      :host article[cdkDrag] {
+        transition-property: box-shadow, border-color;
+        transition-duration: 150ms;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
       }
     `,
   ],
