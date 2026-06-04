@@ -61,6 +61,10 @@ export class UsersService {
     return this.userModel.findById(id);
   }
 
+  async findAdmins() {
+    return this.userModel.find({ role: 'admin', isActive: true });
+  }
+
   async findByEmail(email: string) {
     return this.userModel.findOne({ email: email.toLowerCase() });
   }

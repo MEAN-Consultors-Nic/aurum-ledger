@@ -14,6 +14,8 @@ import { FinanceModule } from './finance/finance.module';
 import { ImportsModule } from './imports/imports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
+import { MailerModule } from './mailer/mailer.module';
+import { NotificationsEngineModule } from './notifications-engine/notifications-engine.module';
 import { PlannedIncomesModule } from './planned-incomes/planned-incomes.module';
 import { ProjectsModule } from './projects/projects.module';
 import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses.module';
@@ -74,6 +76,8 @@ import { UsersModule } from './users/users.module';
     ImportsModule,
     NotificationsModule,
     ProjectsModule,
+    MailerModule,
+    NotificationsEngineModule,
   ],
   controllers: [AppController],
 })

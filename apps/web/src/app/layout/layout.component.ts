@@ -47,6 +47,7 @@ import { ConfirmDialogComponent } from '../shared/confirm-dialog/confirm-dialog.
             <a routerLink="/recurring-expenses" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Recurring expenses</a>
             <a routerLink="/loans" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Loans</a>
             <a routerLink="/subscriptions" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Subscriptions</a>
+            <a routerLink="/notification-center" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Notification center</a>
             <a routerLink="/settings" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Settings</a>
           </nav>
         </aside>
