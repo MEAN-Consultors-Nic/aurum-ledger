@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ClientsApiService } from '../../core/services/clients-api.service';
 import { EstimatesApiService } from '../../core/services/estimates-api.service';
 import { ServicesApiService } from '../../core/services/services-api.service';
@@ -466,6 +467,7 @@ export class EstimatesComponent implements OnInit {
     private readonly estimatesApi: EstimatesApiService,
     private readonly clientsApi: ClientsApiService,
     private readonly servicesApi: ServicesApiService,
+    private readonly router: Router,
   ) {
     this.form = this.fb.group({
       clientId: ['', Validators.required],
@@ -533,23 +535,7 @@ export class EstimatesComponent implements OnInit {
   }
 
   openCreate() {
-    this.editing = null;
-    this.validationError = '';
-    this.deliverables = [];
-    this.form.reset({
-      clientId: '',
-      serviceId: '',
-      title: '',
-      billingPeriod: 'monthly',
-      amount: 0,
-      currency: 'USD',
-      status: 'draft',
-      notes: '',
-      scope: '',
-      terms: '',
-      validUntil: '',
-    });
-    this.isModalOpen = true;
+    this.router.navigate(['/estimates/new']);
   }
 
   rowActions(item: EstimateItem): ActionMenuItem[] {
@@ -584,23 +570,7 @@ export class EstimatesComponent implements OnInit {
   }
 
   openEdit(item: EstimateItem) {
-    this.editing = item;
-    this.validationError = '';
-    this.deliverables = [...(item.deliverables ?? [])];
-    this.form.reset({
-      clientId: this.resolveId(item.clientId),
-      serviceId: this.resolveId(item.serviceId),
-      title: item.title ?? '',
-      billingPeriod: item.billingPeriod,
-      amount: item.amount,
-      currency: item.currency,
-      status: item.status === 'converted' ? 'accepted' : item.status,
-      notes: item.notes ?? '',
-      scope: item.scope ?? '',
-      terms: item.terms ?? '',
-      validUntil: this.toDateInput(item.validUntil),
-    });
-    this.isModalOpen = true;
+    this.router.navigate(['/estimates', item._id]);
   }
 
   addDeliverable() {

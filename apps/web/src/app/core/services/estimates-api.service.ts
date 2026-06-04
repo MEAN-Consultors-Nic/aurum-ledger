@@ -30,6 +30,10 @@ export class EstimatesApiService {
     });
   }
 
+  findById(id: string) {
+    return this.http.get<EstimateItem>(`${environment.apiUrl}/estimates/${id}`);
+  }
+
   create(payload: {
     clientId: string;
     serviceId: string;

@@ -7,6 +7,7 @@ import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { ClientsComponent } from './features/clients/clients.component';
 import { ServicesComponent } from './features/services/services.component';
 import { EstimatesComponent } from './features/estimates/estimates.component';
+import { EstimateEditorComponent } from './features/estimates/estimate-editor.component';
 import { ContractsComponent } from './features/contracts/contracts.component';
 import { ProjectsComponent } from './features/projects/projects.component';
 import { ProjectDetailComponent } from './features/projects/project-detail.component';
@@ -40,6 +41,8 @@ export const routes: Routes = [
       { path: 'clients', component: ClientsComponent },
       { path: 'services', component: ServicesComponent },
       { path: 'estimates', component: EstimatesComponent },
+      { path: 'estimates/new', component: EstimateEditorComponent },
+      { path: 'estimates/:id', component: EstimateEditorComponent },
       { path: 'contracts', component: ContractsComponent },
       { path: 'projects', component: ProjectsComponent },
       { path: 'projects/:id', component: ProjectDetailComponent },
