@@ -15,6 +15,7 @@ import { ImportsModule } from './imports/imports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PlannedIncomesModule } from './planned-incomes/planned-incomes.module';
+import { ProjectsModule } from './projects/projects.module';
 import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses.module';
 import { ReportsModule } from './reports/reports.module';
 import { LoansModule } from './loans/loans.module';
@@ -72,6 +73,7 @@ import { UsersModule } from './users/users.module';
     SubscriptionsModule,
     ImportsModule,
     NotificationsModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
 })

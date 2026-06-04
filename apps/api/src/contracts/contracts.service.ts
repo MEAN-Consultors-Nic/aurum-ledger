@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, SortOrder, Types } from 'mongoose';
+import { ProjectsService } from '../projects/projects.service';
+import { ServicesService } from '../services/services.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { FilterContractDto } from './dto/filter-contract.dto';
 import { OmitPaymentDto } from './dto/omit-payment.dto';
@@ -9,8 +11,12 @@ import { Contract, ContractDocument } from './schemas/contract.schema';
 
 @Injectable()
 export class ContractsService {
+  private readonly logger = new Logger(ContractsService.name);
+
   constructor(
     @InjectModel(Contract.name) private readonly contractModel: Model<ContractDocument>,
+    private readonly projectsService: ProjectsService,
+    private readonly servicesService: ServicesService,
   ) {}
 
   async create(dto: CreateContractDto, userId?: Types.ObjectId) {
@@ -30,7 +36,33 @@ export class ContractsService {
       paymentCount: 0,
     });
 
+    if (contract.status === 'active') {
+      this.spawnProjectFor(contract, userId).catch((err) => {
+        this.logger.error(`Failed to spawn project for contract ${contract._id}: ${err.message}`);
+      });
+    }
+
     return contract;
+  }
+
+  private async spawnProjectFor(contract: ContractDocument, userId?: Types.ObjectId) {
+    let serviceName: string | undefined;
+    try {
+      const service = await this.servicesService.findById(contract.serviceId.toString());
+      serviceName = service?.name;
+    } catch {
+      // service lookup is best-effort; project still gets created without it
+    }
+    await this.projectsService.createFromContract({
+      contractId: contract._id as Types.ObjectId,
+      clientId: contract.clientId,
+      serviceId: contract.serviceId,
+      contractTitle: contract.title,
+      serviceName,
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      userId,
+    });
   }
 
   async findAll(filter: FilterContractDto) {

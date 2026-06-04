@@ -32,6 +32,7 @@ import { ConfirmDialogComponent } from '../shared/confirm-dialog/confirm-dialog.
             <a routerLink="/services" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Services</a>
             <a routerLink="/estimates" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Estimates</a>
             <a routerLink="/contracts" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Contracts</a>
+            <a routerLink="/projects" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Projects</a>
             <a routerLink="/payments" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Payments</a>
             <a routerLink="/reports" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Reports</a>
             <a routerLink="/imports" routerLinkActive="bg-slate-800" class="block rounded px-3 py-2">Import</a>

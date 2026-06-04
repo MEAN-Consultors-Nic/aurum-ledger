@@ -21,6 +21,10 @@ export class ServicesService {
       .sort({ createdAt: -1 });
   }
 
+  async findById(id: string) {
+    return this.serviceModel.findOne({ _id: id, deletedAt: { $exists: false } });
+  }
+
   async update(id: string, dto: UpdateServiceDto) {
     const service = await this.serviceModel.findOneAndUpdate(
       { _id: id, deletedAt: { $exists: false } },

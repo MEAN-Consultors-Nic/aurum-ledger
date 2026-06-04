@@ -8,6 +8,8 @@ import { ClientsComponent } from './features/clients/clients.component';
 import { ServicesComponent } from './features/services/services.component';
 import { EstimatesComponent } from './features/estimates/estimates.component';
 import { ContractsComponent } from './features/contracts/contracts.component';
+import { ProjectsComponent } from './features/projects/projects.component';
+import { ProjectDetailComponent } from './features/projects/project-detail.component';
 import { PaymentsComponent } from './features/payments/payments.component';
 import { ReportsComponent } from './features/reports/reports.component';
 import { ImportsComponent } from './features/imports/imports.component';
@@ -37,6 +39,8 @@ export const routes: Routes = [
       { path: 'services', component: ServicesComponent },
       { path: 'estimates', component: EstimatesComponent },
       { path: 'contracts', component: ContractsComponent },
+      { path: 'projects', component: ProjectsComponent },
+      { path: 'projects/:id', component: ProjectDetailComponent },
       { path: 'payments', component: PaymentsComponent },
       { path: 'reports', component: ReportsComponent },
       { path: 'imports', component: ImportsComponent },
