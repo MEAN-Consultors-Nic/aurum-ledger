@@ -95,13 +95,34 @@ type Pulse = {
                     <span class="h-px w-3 bg-cyan-400/60"></span>
                     Access Key
                   </label>
-                  <input
-                    type="password"
-                    formControlName="password"
-                    autocomplete="current-password"
-                    class="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-slate-100 placeholder-slate-500 transition focus:border-cyan-400/60 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
-                    placeholder="••••••••"
-                  />
+                  <div class="relative mt-2">
+                    <input
+                      [type]="showPassword ? 'text' : 'password'"
+                      formControlName="password"
+                      autocomplete="current-password"
+                      class="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 pr-11 text-sm text-slate-100 placeholder-slate-500 transition focus:border-cyan-400/60 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      (click)="showPassword = !showPassword"
+                      [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+                      [attr.aria-pressed]="showPassword"
+                      tabindex="-1"
+                      class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 transition hover:text-cyan-300"
+                    >
+                      <svg *ngIf="!showPassword" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                      <svg *ngIf="showPassword" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-6.5 0-10-7-10-7a18.66 18.66 0 0 1 4.06-5.06"/>
+                        <path d="M9.9 4.24A10.94 10.94 0 0 1 12 4c6.5 0 10 7 10 7a18.6 18.6 0 0 1-2.16 3.19"/>
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                        <line x1="2" y1="2" x2="22" y2="22"/>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 <label class="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
@@ -158,6 +179,18 @@ type Pulse = {
         50%, 100% { opacity: 0; }
       }
       .animate-blink { animation: blink 1s steps(1) infinite; }
+
+      /* Kill the browser's white autofill background that breaks the dark theme. */
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active {
+        -webkit-text-fill-color: #f1f5f9 !important;
+        -webkit-box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.6) inset !important;
+        box-shadow: 0 0 0 1000px rgba(15, 23, 42, 0.6) inset !important;
+        caret-color: #f1f5f9 !important;
+        transition: background-color 9999s ease-in-out 0s;
+      }
     `,
   ],
 })
@@ -166,6 +199,7 @@ export class LoginComponent implements AfterViewInit, OnDestroy {
 
   error = '';
   isLoading = false;
+  showPassword = false;
   readonly year = new Date().getFullYear();
   form;
 
