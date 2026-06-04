@@ -1,0 +1,20 @@
+export type TransactionItem = {
+  _id: string;
+  type: 'income' | 'expense' | 'transfer' | 'adjustment';
+  flow: 'in' | 'out';
+  accountId: string | { _id: string; name: string; currency: 'USD' | 'NIO' };
+  toAccountId?: string | { _id: string; name: string; currency: 'USD' | 'NIO' };
+  categoryId?: string | { _id: string; name: string; type: 'income' | 'expense' };
+  amount: number;
+  currency: 'USD' | 'NIO';
+  exchangeRate?: number;
+  date: string;
+  reference?: string;
+  notes?: string;
+  linkedClientId?: string | { _id: string; name: string };
+  linkedContractId?: string | { _id: string; title?: string };
+  voidedAt?: string;
+  voidedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
