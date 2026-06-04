@@ -10,7 +10,6 @@ import {
   NotificationLogEntry,
   NotificationRule,
   NotificationTemplate,
-  RenderPreview,
   TemplateGroup,
 } from '../../core/models/notification-engine.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
@@ -229,188 +228,6 @@ type Tab = 'templates' | 'rules' | 'log';
       </div>
     </div>
 
-    <!-- ===== Template editor modal ===== -->
-    <div
-      *ngIf="isTemplateEditorOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4"
-    >
-      <div class="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
-        <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <div>
-            <div class="text-lg font-semibold text-slate-900">
-              {{ editingTemplate ? 'Edit template' : 'New template' }}
-            </div>
-            <div class="text-xs text-slate-500">
-              Uses Handlebars syntax. Click a placeholder chip to insert it at the cursor.
-            </div>
-          </div>
-          <button class="text-slate-400" (click)="closeTemplateEditor()">×</button>
-        </div>
-
-        <div class="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-2">
-          <!-- Editor side -->
-          <div class="space-y-3 overflow-y-auto border-r border-slate-100 p-6">
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Name</label>
-                <input
-                  [(ngModel)]="templateForm.name"
-                  class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Group</label>
-                <select
-                  [(ngModel)]="templateForm.groupId"
-                  class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option [ngValue]="''">— None —</option>
-                  <option *ngFor="let g of groups" [ngValue]="g._id">{{ g.name }}</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Event</label>
-              <select
-                [(ngModel)]="templateForm.eventKey"
-                (ngModelChange)="onEventChange()"
-                class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              >
-                <option [ngValue]="''">— Generic / no event —</option>
-                <option *ngFor="let e of events" [ngValue]="e.key">{{ e.label }}</option>
-              </select>
-              <div *ngIf="selectedEvent" class="mt-1 text-xs text-slate-500">{{ selectedEvent.description }}</div>
-            </div>
-
-            <div *ngIf="placeholdersForEditor().length > 0">
-              <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Placeholders</div>
-              <div class="mt-2 flex flex-wrap gap-1.5">
-                <button
-                  *ngFor="let ph of placeholdersForEditor()"
-                  type="button"
-                  class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] text-slate-700 transition hover:border-slate-400 hover:bg-slate-100"
-                  [title]="ph.description"
-                  (click)="insertPlaceholder('{{ ' + ph.path + ' }}')"
-                >
-                  {{ ph.path }}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Subject</label>
-              <input
-                #subjectInput
-                [(ngModel)]="templateForm.subject"
-                (focus)="lastFocusedField = 'subject'"
-                placeholder="e.g. {{ '{{client.name}}' }} contract expires soon"
-                class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono"
-              />
-            </div>
-
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Body (HTML)</label>
-              <textarea
-                #bodyInput
-                [(ngModel)]="templateForm.bodyHtml"
-                (focus)="lastFocusedField = 'body'"
-                rows="14"
-                class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-mono"
-              ></textarea>
-            </div>
-
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Text fallback (optional)</label>
-              <textarea
-                [(ngModel)]="templateForm.bodyText"
-                rows="3"
-                class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-mono"
-              ></textarea>
-            </div>
-
-            <label class="flex items-center gap-2 text-xs text-slate-700">
-              <input type="checkbox" [(ngModel)]="templateForm.isActive" />
-              Template is active (rules can use it)
-            </label>
-
-            <div *ngIf="templateError" class="text-sm text-rose-600">{{ templateError }}</div>
-          </div>
-
-          <!-- Preview side -->
-          <div class="flex flex-col overflow-hidden">
-            <div class="flex items-center justify-between border-b border-slate-100 px-6 py-3">
-              <div class="text-xs font-semibold uppercase tracking-wide text-slate-600">Preview</div>
-              <button
-                type="button"
-                class="text-xs text-slate-700 underline hover:text-slate-900"
-                (click)="refreshPreview()"
-              >
-                Refresh preview
-              </button>
-            </div>
-            <div class="overflow-y-auto px-6 py-4">
-              <div *ngIf="preview">
-                <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Subject</div>
-                <div class="mb-3 font-semibold text-slate-900">{{ preview.subject }}</div>
-
-                <div class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">HTML</div>
-                <div
-                  class="mt-1 rounded-lg border border-slate-200 bg-slate-50 p-1"
-                >
-                  <iframe
-                    [srcdoc]="preview.html"
-                    sandbox=""
-                    class="h-[420px] w-full rounded bg-white"
-                  ></iframe>
-                </div>
-              </div>
-              <div *ngIf="!preview" class="text-sm text-slate-500">Click "Refresh preview" to render with sample data.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-3">
-          <div class="flex items-center gap-2">
-            <input
-              type="email"
-              [(ngModel)]="testEmail"
-              placeholder="your@email.com"
-              class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <button
-              type="button"
-              [disabled]="!editingTemplate?._id || !testEmail || isSendingTest"
-              (click)="sendTest()"
-              class="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 disabled:opacity-40"
-            >
-              {{ isSendingTest ? 'Sending…' : 'Send test' }}
-            </button>
-            <span *ngIf="testResult" class="text-xs" [ngClass]="testResult.ok ? 'text-emerald-700' : 'text-rose-700'">
-              {{ testResult.ok ? 'Sent ✓' : testResult.reason }}
-            </span>
-          </div>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              class="rounded border border-slate-200 px-4 py-2 text-xs uppercase tracking-wide text-slate-700"
-              (click)="closeTemplateEditor()"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              class="rounded bg-slate-900 px-4 py-2 text-xs uppercase tracking-wide text-white disabled:opacity-40"
-              [disabled]="isSavingTemplate"
-              (click)="saveTemplate()"
-            >
-              {{ isSavingTemplate ? 'Saving…' : 'Save template' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- ===== Group form modal ===== -->
     <div
       *ngIf="isGroupFormOpen"
@@ -589,26 +406,6 @@ export class NotificationCenterComponent implements OnInit {
 
   selectedGroupId: string | null = null;
 
-  // Template editor state
-  isTemplateEditorOpen = false;
-  editingTemplate: NotificationTemplate | null = null;
-  templateForm: {
-    name: string;
-    groupId: string;
-    eventKey: string;
-    subject: string;
-    bodyHtml: string;
-    bodyText: string;
-    isActive: boolean;
-  } = this.emptyTemplateForm();
-  templateError = '';
-  isSavingTemplate = false;
-  preview: RenderPreview | null = null;
-  testEmail = '';
-  isSendingTest = false;
-  testResult: { ok: boolean; reason?: string } | null = null;
-  lastFocusedField: 'subject' | 'body' = 'body';
-
   // Group form
   isGroupFormOpen = false;
   groupForm: { name: string; description: string } = { name: '', description: '' };
@@ -636,9 +433,6 @@ export class NotificationCenterComponent implements OnInit {
     ];
   }
 
-  get selectedEvent(): EventDefinition | undefined {
-    return this.events.find((e) => e.key === this.templateForm.eventKey);
-  }
   get selectedRuleEvent(): EventDefinition | undefined {
     return this.events.find((e) => e.key === this.ruleForm.eventKey);
   }
@@ -718,60 +512,10 @@ export class NotificationCenterComponent implements OnInit {
     ];
   }
   openTemplateEditor(tpl?: NotificationTemplate) {
-    this.editingTemplate = tpl ?? null;
-    this.templateError = '';
-    this.testEmail = '';
-    this.testResult = null;
-    this.preview = null;
-    this.templateForm = tpl
-      ? {
-          name: tpl.name,
-          groupId: this.groupOf(tpl) || '',
-          eventKey: tpl.eventKey ?? '',
-          subject: tpl.subject,
-          bodyHtml: tpl.bodyHtml,
-          bodyText: tpl.bodyText ?? '',
-          isActive: tpl.isActive,
-        }
-      : this.emptyTemplateForm();
-    this.isTemplateEditorOpen = true;
-    setTimeout(() => this.refreshPreview(), 0);
-  }
-  closeTemplateEditor() {
-    this.isTemplateEditorOpen = false;
-    this.editingTemplate = null;
-    this.preview = null;
-  }
-  saveTemplate() {
-    if (!this.templateForm.name?.trim() || !this.templateForm.subject?.trim() || !this.templateForm.bodyHtml?.trim()) {
-      this.templateError = 'Name, subject and body are required.';
-      return;
-    }
-    this.isSavingTemplate = true;
-    this.templateError = '';
-    const payload: Partial<NotificationTemplate> = {
-      name: this.templateForm.name.trim(),
-      groupId: this.templateForm.groupId || undefined,
-      eventKey: this.templateForm.eventKey || undefined,
-      subject: this.templateForm.subject,
-      bodyHtml: this.templateForm.bodyHtml,
-      bodyText: this.templateForm.bodyText || undefined,
-      isActive: this.templateForm.isActive,
-    };
-    const obs = this.editingTemplate
-      ? this.api.updateTemplate(this.editingTemplate._id, payload)
-      : this.api.createTemplate(payload);
-    obs.subscribe({
-      next: () => {
-        this.isSavingTemplate = false;
-        this.closeTemplateEditor();
-        this.api.listTemplates().subscribe({ next: (items) => (this.templates = items) });
-      },
-      error: (err) => {
-        this.isSavingTemplate = false;
-        this.templateError = err?.error?.message ?? 'Unable to save template';
-      },
-    });
+    this.router.navigate([
+      '/notification-center/templates',
+      tpl?._id ? tpl._id : 'new',
+    ]);
   }
   async removeTemplate(tpl: NotificationTemplate) {
     const ok = await this.confirmDialog.open({
@@ -796,72 +540,23 @@ export class NotificationCenterComponent implements OnInit {
     });
   }
   duplicateTemplate(tpl: NotificationTemplate) {
-    this.openTemplateEditor({
-      ...tpl,
-      _id: '',
-      name: `${tpl.name} (copy)`,
-      isSystem: false,
-    } as NotificationTemplate);
-    this.editingTemplate = null;
-  }
-  emptyTemplateForm() {
-    return {
-      name: '',
-      groupId: '',
-      eventKey: '',
-      subject: '',
-      bodyHtml: '<p>Write your message here…</p>',
-      bodyText: '',
-      isActive: true,
-    };
-  }
-  onEventChange() {
-    this.refreshPreview();
-  }
-  placeholdersForEditor() {
-    if (!this.selectedEvent) return [];
-    return this.selectedEvent.placeholders;
-  }
-  insertPlaceholder(text: string) {
-    if (this.lastFocusedField === 'subject') {
-      this.templateForm.subject = (this.templateForm.subject ?? '') + text;
-    } else {
-      this.templateForm.bodyHtml = (this.templateForm.bodyHtml ?? '') + text;
-    }
-  }
-  refreshPreview() {
-    if (!this.templateForm.subject || !this.templateForm.bodyHtml) {
-      this.preview = null;
-      return;
-    }
+    // Create a copy server-side, then navigate to its editor
     this.api
-      .preview({
-        subject: this.templateForm.subject,
-        bodyHtml: this.templateForm.bodyHtml,
-        bodyText: this.templateForm.bodyText || undefined,
-        eventKey: this.templateForm.eventKey || undefined,
+      .createTemplate({
+        name: `${tpl.name} (copy)`,
+        groupId: this.groupOf(tpl) || undefined,
+        eventKey: tpl.eventKey,
+        subject: tpl.subject,
+        bodyHtml: tpl.bodyHtml,
+        bodyText: tpl.bodyText,
+        isActive: tpl.isActive,
+        description: tpl.description,
       })
       .subscribe({
-        next: (p) => (this.preview = p),
-        error: () => (this.preview = null),
+        next: (created) => {
+          this.router.navigate(['/notification-center/templates', created._id]);
+        },
       });
-  }
-  sendTest() {
-    if (!this.editingTemplate?._id) return;
-    this.isSendingTest = true;
-    this.testResult = null;
-    this.api.testSend(this.editingTemplate._id, { to: this.testEmail }).subscribe({
-      next: (res) => {
-        this.isSendingTest = false;
-        this.testResult = res.ok
-          ? { ok: true }
-          : { ok: false, reason: res.reason };
-      },
-      error: (err) => {
-        this.isSendingTest = false;
-        this.testResult = { ok: false, reason: err?.error?.message ?? 'Send failed' };
-      },
-    });
   }
 
   // ---------- rules ----------
