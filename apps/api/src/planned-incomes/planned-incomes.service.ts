@@ -183,6 +183,24 @@ export class PlannedIncomesService {
     return occurrence;
   }
 
+  async reactivateOccurrence(id: string, userId?: Types.ObjectId) {
+    const occurrence = await this.occurrenceModel.findById(id);
+    if (!occurrence) {
+      throw new NotFoundException('Planned income occurrence not found');
+    }
+    if (occurrence.status !== 'omitted') {
+      throw new BadRequestException('Only omitted occurrences can be reactivated');
+    }
+
+    occurrence.status = 'planned';
+    occurrence.receivedAmount = undefined;
+    occurrence.feeAmount = undefined;
+    occurrence.confirmationNote = undefined;
+    occurrence.updatedBy = userId;
+    await occurrence.save();
+    return occurrence;
+  }
+
   async getAlerts(month?: string) {
     const { start, end } = this.parseMonth(month);
     const today = new Date();

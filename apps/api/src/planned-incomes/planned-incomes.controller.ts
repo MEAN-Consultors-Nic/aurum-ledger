@@ -60,6 +60,11 @@ export class PlannedIncomesController {
     return this.plannedIncomesService.omitOccurrence(id, user?._id);
   }
 
+  @Post('occurrences/:id/reactivate')
+  reactivateOccurrence(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.plannedIncomesService.reactivateOccurrence(id, user?._id);
+  }
+
   @Get('alerts')
   getAlerts(@Query() query: OccurrenceQueryDto) {
     return this.plannedIncomesService.getAlerts(query.month);

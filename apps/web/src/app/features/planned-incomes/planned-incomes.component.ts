@@ -273,12 +273,20 @@ import { CategoryItem } from '../../core/models/category.model';
             <span class="text-xs text-slate-500">{{ grouped().omitted.length }}</span>
           </div>
           <ul class="divide-y divide-slate-100">
-            <li *ngFor="let o of grouped().omitted" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-slate-400">
-              <div class="min-w-0 flex-1">
+            <li *ngFor="let o of grouped().omitted" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+              <div class="min-w-0 flex-1 text-slate-400">
                 <div class="line-through">{{ resolvePlannedName(o) }}</div>
                 <div class="text-xs">{{ formatShortDate(o.date) }} · {{ resolveAccountName(o) }}</div>
               </div>
-              <div class="line-through">{{ formatMoney(o.amount, o.currency) }}</div>
+              <div class="text-slate-400 line-through">{{ formatMoney(o.amount, o.currency) }}</div>
+              <button
+                (click)="reactivate(o)"
+                [disabled]="isWorking"
+                class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                title="Restore this occurrence to planned status"
+              >
+                Reactivate
+              </button>
             </li>
           </ul>
         </ng-container>
@@ -793,6 +801,22 @@ export class PlannedIncomesComponent implements OnInit {
     }
     this.isWorking = true;
     this.plannedIncomesApi.omitOccurrence(item._id).subscribe({
+      next: () => {
+        this.isWorking = false;
+        this.loadMonth();
+      },
+      error: () => {
+        this.isWorking = false;
+      },
+    });
+  }
+
+  reactivate(item: PlannedIncomeOccurrence) {
+    if (item.status !== 'omitted') {
+      return;
+    }
+    this.isWorking = true;
+    this.plannedIncomesApi.reactivateOccurrence(item._id).subscribe({
       next: () => {
         this.isWorking = false;
         this.loadMonth();

@@ -68,6 +68,13 @@ export class PlannedIncomesApiService {
     );
   }
 
+  reactivateOccurrence(id: string) {
+    return this.http.post<PlannedIncomeOccurrence>(
+      `${environment.apiUrl}/planned-incomes/occurrences/${id}/reactivate`,
+      {},
+    );
+  }
+
   alerts(month?: string) {
     let httpParams = new HttpParams();
     if (month) {
