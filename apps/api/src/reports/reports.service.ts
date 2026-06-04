@@ -34,13 +34,21 @@ export class ReportsService {
     const [receivableAggregate, paidThisMonth, dueNext30Days, overdueCount] =
       await Promise.all([
         this.contractModel.aggregate([
-          { $match: { deletedAt: { $exists: false }, paymentOmittedAt: { $exists: false } } },
+          {
+            $match: {
+              deletedAt: { $exists: false },
+              paymentOmittedAt: { $exists: false },
+              status: { $ne: 'cancelled' },
+            },
+          },
           {
             $project: {
               currency: {
                 $cond: [{ $eq: ['$currency', 'NIO'] }, 'NIO', 'USD'],
               },
-              receivable: { $subtract: ['$amount', '$paidTotal'] },
+              receivable: {
+                $max: [{ $subtract: ['$amount', '$paidTotal'] }, 0],
+              },
             },
           },
           {
@@ -94,6 +102,7 @@ export class ReportsService {
             $match: {
               deletedAt: { $exists: false },
               paymentOmittedAt: { $exists: false },
+              status: { $ne: 'cancelled' },
               endDate: { $gte: now, $lte: due30 },
             },
           },
@@ -113,6 +122,7 @@ export class ReportsService {
             $match: {
               deletedAt: { $exists: false },
               paymentOmittedAt: { $exists: false },
+              status: { $ne: 'cancelled' },
               endDate: { $lt: now },
             },
           },
@@ -160,14 +170,22 @@ export class ReportsService {
     const fxRate = this.getFxRate();
 
     return this.contractModel.aggregate([
-      { $match: { deletedAt: { $exists: false }, paymentOmittedAt: { $exists: false } } },
+      {
+        $match: {
+          deletedAt: { $exists: false },
+          paymentOmittedAt: { $exists: false },
+          status: { $ne: 'cancelled' },
+        },
+      },
       {
         $project: {
           groupId: groupField,
           currency: {
             $cond: [{ $eq: ['$currency', 'NIO'] }, 'NIO', 'USD'],
           },
-          receivable: { $subtract: ['$amount', '$paidTotal'] },
+          receivable: {
+            $max: [{ $subtract: ['$amount', '$paidTotal'] }, 0],
+          },
         },
       },
       {
@@ -302,6 +320,7 @@ export class ReportsService {
             $match: {
               deletedAt: { $exists: false },
               paymentOmittedAt: { $exists: false },
+              status: { $ne: 'cancelled' },
               createdAt: { $lte: end },
             },
           },
@@ -486,6 +505,7 @@ export class ReportsService {
           $match: {
             deletedAt: { $exists: false },
             paymentOmittedAt: { $exists: false },
+            status: { $ne: 'cancelled' },
             endDate: { $gte: start, $lte: end },
           },
         },
