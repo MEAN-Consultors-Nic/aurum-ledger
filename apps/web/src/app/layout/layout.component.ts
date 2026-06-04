@@ -4,8 +4,9 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../core/services/auth.service';
 import { NotificationsApiService } from '../core/services/notifications-api.service';
 import { ConfirmDialogComponent } from '../shared/confirm-dialog/confirm-dialog.component';
+import { IconComponent } from '../shared/icon/icon.component';
 
-type NavItem = { label: string; path: string };
+type NavItem = { label: string; path: string; icon: string };
 type NavGroup = { key: string; label: string; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -13,43 +14,43 @@ const NAV_GROUPS: NavGroup[] = [
     key: 'sales',
     label: 'Sales',
     items: [
-      { label: 'Clients', path: '/clients' },
-      { label: 'Services', path: '/services' },
-      { label: 'Estimates', path: '/estimates' },
-      { label: 'Contracts', path: '/contracts' },
-      { label: 'Projects', path: '/projects' },
-      { label: 'Payments', path: '/payments' },
+      { label: 'Clients', path: '/clients', icon: 'clients' },
+      { label: 'Services', path: '/services', icon: 'services' },
+      { label: 'Estimates', path: '/estimates', icon: 'estimates' },
+      { label: 'Contracts', path: '/contracts', icon: 'contracts' },
+      { label: 'Projects', path: '/projects', icon: 'projects' },
+      { label: 'Payments', path: '/payments', icon: 'payments' },
     ],
   },
   {
     key: 'finance',
     label: 'Finance',
     items: [
-      { label: 'Accounts', path: '/accounts' },
-      { label: 'Categories', path: '/categories' },
-      { label: 'Transactions', path: '/transactions' },
-      { label: 'Budgets', path: '/budgets' },
-      { label: 'Summary', path: '/finance' },
-      { label: 'Planned income', path: '/planned-income' },
-      { label: 'Recurring expenses', path: '/recurring-expenses' },
-      { label: 'Loans', path: '/loans' },
-      { label: 'Subscriptions', path: '/subscriptions' },
+      { label: 'Accounts', path: '/accounts', icon: 'accounts' },
+      { label: 'Categories', path: '/categories', icon: 'categories' },
+      { label: 'Transactions', path: '/transactions', icon: 'transactions' },
+      { label: 'Budgets', path: '/budgets', icon: 'budgets' },
+      { label: 'Summary', path: '/finance', icon: 'finance' },
+      { label: 'Planned income', path: '/planned-income', icon: 'planned-income' },
+      { label: 'Recurring expenses', path: '/recurring-expenses', icon: 'recurring-expenses' },
+      { label: 'Loans', path: '/loans', icon: 'loans' },
+      { label: 'Subscriptions', path: '/subscriptions', icon: 'subscriptions' },
     ],
   },
   {
     key: 'insights',
     label: 'Insights',
-    items: [{ label: 'Reports', path: '/reports' }],
+    items: [{ label: 'Reports', path: '/reports', icon: 'reports' }],
   },
   {
     key: 'admin',
     label: 'Admin',
     items: [
-      { label: 'Users', path: '/users' },
-      { label: 'Notification center', path: '/notification-center' },
-      { label: 'Reconcile', path: '/reconcile' },
-      { label: 'Import', path: '/imports' },
-      { label: 'Settings', path: '/settings' },
+      { label: 'Users', path: '/users', icon: 'users' },
+      { label: 'Notification center', path: '/notification-center', icon: 'notification-center' },
+      { label: 'Reconcile', path: '/reconcile', icon: 'reconcile' },
+      { label: 'Import', path: '/imports', icon: 'imports' },
+      { label: 'Settings', path: '/settings', icon: 'settings' },
     ],
   },
 ];
@@ -59,7 +60,7 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, ConfirmDialogComponent],
+  imports: [CommonModule, RouterModule, ConfirmDialogComponent, IconComponent],
   template: `
     <div class="min-h-screen bg-slate-50 text-slate-900">
       <div class="flex">
@@ -82,16 +83,20 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
             <a
               routerLink="/dashboard"
               routerLinkActive="bg-slate-800 text-white"
-              class="flex items-center rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+              class="flex items-center gap-3 rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
             >
-              Dashboard
+              <app-icon name="dashboard" [size]="16" class="shrink-0 text-slate-400" />
+              <span>Dashboard</span>
             </a>
             <a
               routerLink="/notifications"
               routerLinkActive="bg-slate-800 text-white"
-              class="flex items-center justify-between rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+              class="flex items-center justify-between gap-3 rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
             >
-              <span>Alerts</span>
+              <span class="flex items-center gap-3">
+                <app-icon name="alerts" [size]="16" class="shrink-0 text-slate-400" />
+                <span>Alerts</span>
+              </span>
               <span
                 *ngIf="alertCount > 0"
                 class="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
@@ -120,9 +125,10 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
                   *ngFor="let item of group.items"
                   [routerLink]="item.path"
                   routerLinkActive="bg-slate-800 text-white"
-                  class="block rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+                  class="flex items-center gap-3 rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
                 >
-                  {{ item.label }}
+                  <app-icon [name]="item.icon" [size]="16" class="shrink-0 text-slate-400" />
+                  <span>{{ item.label }}</span>
                 </a>
               </div>
             </div>
