@@ -67,4 +67,18 @@ export class EstimatesApiService {
   }) {
     return this.http.post<EstimateConvertResponse>(`${environment.apiUrl}/estimates/${id}/convert`, payload);
   }
+
+  generateShare(id: string) {
+    return this.http.post<{
+      shareToken: string;
+      shareCreatedAt: string;
+      shareRevokedAt?: string;
+      shareViewCount: number;
+      shareLastViewedAt?: string;
+    }>(`${environment.apiUrl}/estimates/${id}/share`, {});
+  }
+
+  revokeShare(id: string) {
+    return this.http.delete<{ revoked: boolean }>(`${environment.apiUrl}/estimates/${id}/share`);
+  }
 }

@@ -53,4 +53,14 @@ export class EstimatesController {
   ) {
     return this.estimatesService.convertToContract(id, dto, user?._id);
   }
+
+  @Post(':id/share')
+  generateShare(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.estimatesService.generateShareToken(id, user?._id);
+  }
+
+  @Delete(':id/share')
+  revokeShare(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.estimatesService.revokeShareToken(id, user?._id);
+  }
 }

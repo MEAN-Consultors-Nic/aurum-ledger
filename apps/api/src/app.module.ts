@@ -19,6 +19,7 @@ import { NotificationsEngineModule } from './notifications-engine/notifications-
 import { ReconcileModule } from './reconcile/reconcile.module';
 import { PlannedIncomesModule } from './planned-incomes/planned-incomes.module';
 import { ProjectsModule } from './projects/projects.module';
+import { PublicModule } from './public/public.module';
 import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses.module';
 import { ReportsModule } from './reports/reports.module';
 import { LoansModule } from './loans/loans.module';
@@ -77,6 +78,7 @@ import { UsersModule } from './users/users.module';
     ImportsModule,
     NotificationsModule,
     ProjectsModule,
+    PublicModule,
     MailerModule,
     NotificationsEngineModule,
     ReconcileModule,

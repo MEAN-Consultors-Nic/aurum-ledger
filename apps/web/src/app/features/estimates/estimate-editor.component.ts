@@ -10,6 +10,7 @@ import { EstimatesApiService } from '../../core/services/estimates-api.service';
 import { ServicesApiService } from '../../core/services/services-api.service';
 import { ClientItem } from '../../core/models/client.model';
 import { EstimateItem } from '../../core/models/estimate.model';
+import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
 import { ServiceItem } from '../../core/models/service.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 import {
@@ -29,6 +30,7 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
     RouterLink,
     ActionMenuComponent,
     SendNotificationDialogComponent,
+    SharePanelComponent,
   ],
   template: `
     <div *ngIf="isLoading" class="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -250,6 +252,16 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
               ></textarea>
             </div>
 
+            <!-- Client portal share link -->
+            <app-share-panel
+              *ngIf="!isNew"
+              portalPath="/portal/estimates"
+              [state]="shareState"
+              [busy]="isSharing"
+              (generate)="generateShare()"
+              (revoke)="revokeShare()"
+            />
+
             <!-- Bottom spacer -->
             <div class="h-12"></div>
           </div>
@@ -341,6 +353,8 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
 export class EstimateEditorComponent implements OnInit {
   estimateId: string | null = null;
   isNew = true;
+  shareState: SharePanelState | null = null;
+  isSharing = false;
   isLoading = false;
   isSaving = false;
   loadError = '';
@@ -425,6 +439,13 @@ export class EstimateEditorComponent implements OnInit {
 
   private applyEstimate(item: EstimateItem) {
     this.deliverables = [...(item.deliverables ?? [])];
+    this.shareState = {
+      shareToken: item.shareToken,
+      shareCreatedAt: item.shareCreatedAt,
+      shareRevokedAt: item.shareRevokedAt,
+      shareViewCount: item.shareViewCount,
+      shareLastViewedAt: item.shareLastViewedAt,
+    };
     this.form.reset({
       clientId: this.resolveId(item.clientId),
       serviceId: this.resolveId(item.serviceId),
@@ -550,6 +571,38 @@ export class EstimateEditorComponent implements OnInit {
       next: () => this.router.navigate(['/estimates']),
       error: (err) => {
         this.validationError = err?.error?.message ?? 'Unable to delete estimate';
+      },
+    });
+  }
+
+  generateShare() {
+    if (!this.estimateId) return;
+    this.isSharing = true;
+    this.estimatesApi.generateShare(this.estimateId).subscribe({
+      next: (res) => {
+        this.shareState = res;
+        this.isSharing = false;
+      },
+      error: () => {
+        this.isSharing = false;
+        this.validationError = 'Unable to generate share link';
+      },
+    });
+  }
+
+  revokeShare() {
+    if (!this.estimateId || !this.shareState?.shareToken) return;
+    this.isSharing = true;
+    this.estimatesApi.revokeShare(this.estimateId).subscribe({
+      next: () => {
+        if (this.shareState) {
+          this.shareState = { ...this.shareState, shareRevokedAt: new Date().toISOString() };
+        }
+        this.isSharing = false;
+      },
+      error: () => {
+        this.isSharing = false;
+        this.validationError = 'Unable to revoke share link';
       },
     });
   }

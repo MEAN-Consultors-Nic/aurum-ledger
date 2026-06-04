@@ -14,6 +14,7 @@ import {
   ProjectTemplateSummary,
 } from '../../core/models/project.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
+import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
 
 type Tab = 'overview' | 'tasks' | 'notes' | 'credentials' | 'deliverables';
 
@@ -138,7 +139,14 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, ActionMenuComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    RouterLink,
+    ActionMenuComponent,
+    SharePanelComponent,
+  ],
   template: `
     <div *ngIf="isLoading" class="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
       Loading project…
@@ -486,6 +494,15 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
           </ul>
         </div>
       </div>
+
+      <!-- Client portal share link -->
+      <app-share-panel
+        portalPath="/portal/projects"
+        [state]="shareState"
+        [busy]="isSharing"
+        (generate)="generateShare()"
+        (revoke)="revokeShare()"
+      />
     </div>
 
     <!-- Credential modal -->
@@ -677,6 +694,10 @@ export class ProjectDetailComponent implements OnInit {
   // template modal
   isTemplateModalOpen = false;
 
+  // share panel
+  shareState: SharePanelState | null = null;
+  isSharing = false;
+
   readonly credentialTypes = CREDENTIAL_TYPES;
 
   get credFormSpec(): CredentialTypeSpec {
@@ -724,6 +745,13 @@ export class ProjectDetailComponent implements OnInit {
         this.credentials = credentials;
         this.availableTemplates = templates;
         this.descriptionDraft = project.description ?? '';
+        this.shareState = {
+          shareToken: project.shareToken,
+          shareCreatedAt: project.shareCreatedAt,
+          shareRevokedAt: project.shareRevokedAt,
+          shareViewCount: project.shareViewCount,
+          shareLastViewedAt: project.shareLastViewedAt,
+        };
         this.isLoading = false;
       },
       error: (err) => {
@@ -1140,6 +1168,39 @@ export class ProjectDetailComponent implements OnInit {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+    });
+  }
+
+  // ----- share link -----
+  generateShare() {
+    if (!this.projectId) return;
+    this.isSharing = true;
+    this.projectsApi.generateShare(this.projectId).subscribe({
+      next: (res) => {
+        this.shareState = res;
+        this.isSharing = false;
+      },
+      error: () => {
+        this.isSharing = false;
+        this.error = 'Unable to generate share link';
+      },
+    });
+  }
+
+  revokeShare() {
+    if (!this.projectId || !this.shareState?.shareToken) return;
+    this.isSharing = true;
+    this.projectsApi.revokeShare(this.projectId).subscribe({
+      next: () => {
+        if (this.shareState) {
+          this.shareState = { ...this.shareState, shareRevokedAt: new Date().toISOString() };
+        }
+        this.isSharing = false;
+      },
+      error: () => {
+        this.isSharing = false;
+        this.error = 'Unable to revoke share link';
+      },
     });
   }
 }

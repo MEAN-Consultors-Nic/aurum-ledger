@@ -29,9 +29,15 @@ import { TemplateEditorComponent } from './features/notification-center/template
 import { RecurringExpensesComponent } from './features/recurring-expenses/recurring-expenses.component';
 import { LoansComponent } from './features/loans/loans.component';
 import { SubscriptionsComponent } from './features/subscriptions/subscriptions.component';
+import { PortalEstimateComponent } from './features/portal/portal-estimate.component';
+import { PortalProjectComponent } from './features/portal/portal-project.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+  // Public, unauthenticated client portal — sits outside LayoutComponent
+  // and the auth guard so external clients can open the share links.
+  { path: 'portal/estimates/:token', component: PortalEstimateComponent },
+  { path: 'portal/projects/:token', component: PortalProjectComponent },
   {
     path: '',
     component: LayoutComponent,

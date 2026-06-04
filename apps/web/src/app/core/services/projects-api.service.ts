@@ -121,4 +121,19 @@ export class ProjectsApiService {
       `${this.base}/${id}/credentials/${credentialId}`,
     );
   }
+
+  // ----- Client-portal share link -----
+  generateShare(id: string) {
+    return this.http.post<{
+      shareToken: string;
+      shareCreatedAt: string;
+      shareRevokedAt?: string;
+      shareViewCount: number;
+      shareLastViewedAt?: string;
+    }>(`${this.base}/${id}/share`, {});
+  }
+
+  revokeShare(id: string) {
+    return this.http.delete<{ revoked: boolean }>(`${this.base}/${id}/share`);
+  }
 }

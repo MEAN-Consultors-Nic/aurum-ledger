@@ -24,6 +24,11 @@ export type EstimateItem = {
   convertedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  shareToken?: string;
+  shareCreatedAt?: string;
+  shareRevokedAt?: string;
+  shareViewCount?: number;
+  shareLastViewedAt?: string;
 };
 
 export type EstimateListResponse = {

@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, SortOrder, Types } from 'mongoose';
@@ -183,5 +184,70 @@ export class EstimatesService {
     }
 
     return { estimate: updatedEstimate, contract };
+  }
+
+  // ------------------------------------------------------------
+  // Client-portal share link
+  // ------------------------------------------------------------
+
+  async generateShareToken(id: string, userId?: Types.ObjectId) {
+    const estimate = await this.estimateModel.findOne({
+      _id: id,
+      deletedAt: { $exists: false },
+    });
+    if (!estimate) {
+      throw new NotFoundException('Estimate not found');
+    }
+    estimate.shareToken = randomBytes(32).toString('base64url');
+    estimate.shareCreatedAt = new Date();
+    estimate.shareCreatedBy = userId;
+    estimate.shareRevokedAt = undefined;
+    estimate.shareViewCount = 0;
+    estimate.shareLastViewedAt = undefined;
+    estimate.updatedBy = userId;
+    await estimate.save();
+    return {
+      shareToken: estimate.shareToken,
+      shareCreatedAt: estimate.shareCreatedAt,
+      shareRevokedAt: estimate.shareRevokedAt,
+      shareViewCount: estimate.shareViewCount,
+      shareLastViewedAt: estimate.shareLastViewedAt,
+    };
+  }
+
+  async revokeShareToken(id: string, userId?: Types.ObjectId) {
+    const estimate = await this.estimateModel.findOne({
+      _id: id,
+      deletedAt: { $exists: false },
+    });
+    if (!estimate) {
+      throw new NotFoundException('Estimate not found');
+    }
+    estimate.shareRevokedAt = new Date();
+    estimate.updatedBy = userId;
+    await estimate.save();
+    return { revoked: true };
+  }
+
+  async findByShareToken(token: string) {
+    const estimate = await this.estimateModel
+      .findOneAndUpdate(
+        {
+          shareToken: token,
+          shareRevokedAt: { $exists: false },
+          deletedAt: { $exists: false },
+        },
+        {
+          $inc: { shareViewCount: 1 },
+          $set: { shareLastViewedAt: new Date() },
+        },
+        { new: true },
+      )
+      .populate('clientId', 'name email')
+      .populate('serviceId', 'name');
+    if (!estimate) {
+      throw new NotFoundException('This link is no longer valid');
+    }
+    return estimate;
   }
 }

@@ -206,4 +206,15 @@ export class ProjectsController {
   ) {
     return this.credentialsService.remove(credentialId, user?._id);
   }
+
+  // ----- Client-portal share link -----
+  @Post(':id/share')
+  generateShare(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.projectsService.generateShareToken(id, user?._id);
+  }
+
+  @Delete(':id/share')
+  revokeShare(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.projectsService.revokeShareToken(id, user?._id);
+  }
 }

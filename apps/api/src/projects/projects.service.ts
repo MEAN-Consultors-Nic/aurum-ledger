@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -316,6 +317,63 @@ export class ProjectsService {
 
   listTemplates(): ProjectTemplate[] {
     return require('./templates').PROJECT_TEMPLATES as ProjectTemplate[];
+  }
+
+  // ------------------------------------------------------------
+  // Client-portal share link
+  // ------------------------------------------------------------
+
+  async generateShareToken(id: string, userId?: Types.ObjectId) {
+    const project = await this.requireActive(id);
+    project.shareToken = randomBytes(32).toString('base64url');
+    project.shareCreatedAt = new Date();
+    project.shareCreatedBy = userId;
+    project.shareRevokedAt = undefined;
+    project.shareViewCount = 0;
+    project.shareLastViewedAt = undefined;
+    project.updatedBy = userId;
+    await project.save();
+    return {
+      shareToken: project.shareToken,
+      shareCreatedAt: project.shareCreatedAt,
+      shareRevokedAt: project.shareRevokedAt,
+      shareViewCount: project.shareViewCount,
+      shareLastViewedAt: project.shareLastViewedAt,
+    };
+  }
+
+  async revokeShareToken(id: string, userId?: Types.ObjectId) {
+    const project = await this.requireActive(id);
+    project.shareRevokedAt = new Date();
+    project.updatedBy = userId;
+    await project.save();
+    return { revoked: true };
+  }
+
+  async findByShareToken(token: string) {
+    const project = await this.projectModel
+      .findOneAndUpdate(
+        {
+          shareToken: token,
+          shareRevokedAt: { $exists: false },
+          deletedAt: { $exists: false },
+        },
+        {
+          $inc: { shareViewCount: 1 },
+          $set: { shareLastViewedAt: new Date() },
+        },
+        { new: true },
+      )
+      .populate('clientId', 'name')
+      .populate('serviceId', 'name')
+      .populate('contractId', 'title billingPeriod');
+    if (!project) {
+      throw new NotFoundException('This link is no longer valid');
+    }
+    const tasks = await this.taskModel
+      .find({ projectId: project._id, deletedAt: { $exists: false } })
+      .sort({ status: 1, order: 1 });
+    return { project, tasks };
   }
 
   // ---------- helpers ----------

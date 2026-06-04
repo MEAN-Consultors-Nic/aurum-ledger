@@ -67,8 +67,28 @@ export class Estimate {
 
   @Prop()
   deletedAt?: Date;
+
+  // ----- Client-portal share link -----
+  @Prop()
+  shareToken?: string;
+
+  @Prop()
+  shareCreatedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  shareCreatedBy?: Types.ObjectId;
+
+  @Prop()
+  shareRevokedAt?: Date;
+
+  @Prop({ default: 0 })
+  shareViewCount: number;
+
+  @Prop()
+  shareLastViewedAt?: Date;
 }
 
 export const EstimateSchema = SchemaFactory.createForClass(Estimate);
 EstimateSchema.index({ clientId: 1, status: 1 });
 EstimateSchema.index({ createdAt: -1 });
+EstimateSchema.index({ shareToken: 1 }, { unique: true, sparse: true });
