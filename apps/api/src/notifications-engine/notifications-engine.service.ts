@@ -526,24 +526,31 @@ export class NotificationsEngineService implements OnModuleInit {
   }
 
   // ---------- Seeding ----------
+  // Idempotent: on every boot, insert any seed groups / system templates that are
+  // missing (matched by name). Existing user edits to system templates are preserved.
   private async seedDefaults() {
-    const groupCount = await this.groupModel.countDocuments({});
-    const groupMap = new Map<string, Types.ObjectId>();
-
-    if (groupCount === 0) {
-      const created = await this.groupModel.insertMany(
-        SEED_GROUPS.map((g) => ({ ...g, isSystem: true })),
+    const existingGroups = await this.groupModel.find({});
+    const existingGroupNames = new Set(existingGroups.map((g) => g.name.toLowerCase()));
+    const missingGroups = SEED_GROUPS.filter(
+      (g) => !existingGroupNames.has(g.name.toLowerCase()),
+    );
+    if (missingGroups.length > 0) {
+      const inserted = await this.groupModel.insertMany(
+        missingGroups.map((g) => ({ ...g, isSystem: true })),
       );
-      created.forEach((g) => groupMap.set(g.name.toLowerCase(), g._id));
-      this.logger.log(`Seeded ${created.length} template groups`);
-    } else {
-      const groups = await this.groupModel.find({});
-      groups.forEach((g) => groupMap.set(g.name.toLowerCase(), g._id));
+      this.logger.log(`Seeded ${inserted.length} new template groups: ${inserted.map((g) => g.name).join(', ')}`);
     }
 
-    const templateCount = await this.templateModel.countDocuments({ isSystem: true });
-    if (templateCount === 0) {
-      const docs = SEED_TEMPLATES.map((t) => {
+    // Refetch to include just-inserted groups
+    const allGroups = await this.groupModel.find({});
+    const groupMap = new Map<string, Types.ObjectId>();
+    allGroups.forEach((g) => groupMap.set(g.name.toLowerCase(), g._id));
+
+    const existingTemplates = await this.templateModel.find({ isSystem: true });
+    const existingTemplateNames = new Set(existingTemplates.map((t) => t.name));
+    const missingTemplates = SEED_TEMPLATES.filter((t) => !existingTemplateNames.has(t.name));
+    if (missingTemplates.length > 0) {
+      const docs = missingTemplates.map((t) => {
         const matchKey = SEED_GROUPS.find((g) => g.key === t.group)?.name.toLowerCase();
         return {
           name: t.name,
@@ -558,7 +565,7 @@ export class NotificationsEngineService implements OnModuleInit {
         };
       });
       const inserted = await this.templateModel.insertMany(docs);
-      this.logger.log(`Seeded ${inserted.length} system templates`);
+      this.logger.log(`Seeded ${inserted.length} new system templates: ${inserted.map((t) => t.name).join(', ')}`);
     }
   }
 }
