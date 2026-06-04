@@ -51,6 +51,11 @@ export class LoansController {
     return this.loansService.omitOccurrence(id, user?._id);
   }
 
+  @Post('occurrences/:id/reactivate')
+  reactivateOccurrence(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.loansService.reactivateOccurrence(id, user?._id);
+  }
+
   @Get('alerts')
   getAlerts(@Query() query: LoanOccurrenceQueryDto) {
     return this.loansService.getAlerts(query.month);

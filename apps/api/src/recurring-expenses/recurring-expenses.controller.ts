@@ -55,6 +55,11 @@ export class RecurringExpensesController {
     return this.recurringExpensesService.omitOccurrence(id, user?._id);
   }
 
+  @Post('occurrences/:id/reactivate')
+  reactivateOccurrence(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.recurringExpensesService.reactivateOccurrence(id, user?._id);
+  }
+
   @Get('alerts')
   getAlerts(@Query() query: RecurringOccurrenceQueryDto) {
     return this.recurringExpensesService.getAlerts(query.month);

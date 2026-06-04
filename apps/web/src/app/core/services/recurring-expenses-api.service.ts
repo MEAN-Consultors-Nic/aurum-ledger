@@ -67,6 +67,13 @@ export class RecurringExpensesApiService {
     );
   }
 
+  reactivateOccurrence(id: string) {
+    return this.http.post<RecurringExpenseOccurrence>(
+      `${environment.apiUrl}/recurring-expenses/occurrences/${id}/reactivate`,
+      {},
+    );
+  }
+
   alerts(month?: string) {
     let httpParams = new HttpParams();
     if (month) {

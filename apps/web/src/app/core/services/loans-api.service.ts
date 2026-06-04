@@ -55,6 +55,10 @@ export class LoansApiService {
     return this.http.post<LoanPaymentOccurrence>(`${environment.apiUrl}/loans/occurrences/${id}/omit`, {});
   }
 
+  reactivateOccurrence(id: string) {
+    return this.http.post<LoanPaymentOccurrence>(`${environment.apiUrl}/loans/occurrences/${id}/reactivate`, {});
+  }
+
   alerts(month?: string) {
     let httpParams = new HttpParams();
     if (month) {

@@ -60,6 +60,13 @@ export class SubscriptionsApiService {
     );
   }
 
+  reactivateOccurrence(id: string) {
+    return this.http.post<SubscriptionOccurrence>(
+      `${environment.apiUrl}/subscriptions/occurrences/${id}/reactivate`,
+      {},
+    );
+  }
+
   alerts(month?: string) {
     let httpParams = new HttpParams();
     if (month) {

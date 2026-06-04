@@ -55,6 +55,11 @@ export class SubscriptionsController {
     return this.subscriptionsService.omitOccurrence(id, user?._id);
   }
 
+  @Post('occurrences/:id/reactivate')
+  reactivateOccurrence(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.subscriptionsService.reactivateOccurrence(id, user?._id);
+  }
+
   @Get('alerts')
   getAlerts(@Query() query: SubscriptionOccurrenceQueryDto) {
     return this.subscriptionsService.getAlerts(query.month);
