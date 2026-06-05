@@ -194,7 +194,14 @@ type ClientWithCustom = ClientItem & { customValues?: Record<string, unknown> };
           </div>
 
           <div>
-            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Custom fields</div>
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Custom fields</div>
+              <span *ngIf="customSaveBanner"
+                class="text-[10px] font-semibold uppercase tracking-wide"
+                [ngClass]="customSaveBanner === 'Saving…' ? 'text-slate-500' : 'text-emerald-600'">
+                {{ customSaveBanner }}
+              </span>
+            </div>
             <div class="mt-2">
               <app-custom-fields-panel
                 entityType="client"
@@ -203,6 +210,7 @@ type ClientWithCustom = ClientItem & { customValues?: Record<string, unknown> };
                 [showEmptyHint]="true"
               />
             </div>
+            <div *ngIf="customError" class="mt-2 text-xs text-rose-600">{{ customError }}</div>
           </div>
 
           <!-- Recent contracts preview -->
@@ -351,8 +359,11 @@ export class ClientDetailComponent implements OnInit {
   activeTab: Tab = 'overview';
   notesDraft = '';
   customValues: Record<string, unknown> = {};
+  customSaveBanner = '';
+  customError = '';
   private customValuesDirty = false;
   private customValuesTimer: ReturnType<typeof setTimeout> | null = null;
+  private customBannerTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Inline-edit drafts for basic info
   basic = {
@@ -548,6 +559,8 @@ export class ClientDetailComponent implements OnInit {
   onCustomValuesChange(values: Record<string, unknown>) {
     this.customValues = values;
     this.customValuesDirty = true;
+    this.customError = '';
+    this.customSaveBanner = 'Saving…';
     if (this.customValuesTimer) clearTimeout(this.customValuesTimer);
     this.customValuesTimer = setTimeout(() => this.persistCustomValues(), 700);
   }
@@ -558,7 +571,15 @@ export class ClientDetailComponent implements OnInit {
     this.clientsApi
       .update(this.client._id, { customValues: this.customValues } as never)
       .subscribe({
-        error: () => (this.error = 'Unable to save custom fields'),
+        next: () => {
+          this.customSaveBanner = 'Saved';
+          if (this.customBannerTimer) clearTimeout(this.customBannerTimer);
+          this.customBannerTimer = setTimeout(() => (this.customSaveBanner = ''), 1500);
+        },
+        error: (err) => {
+          this.customSaveBanner = '';
+          this.customError = err?.error?.message ?? 'Unable to save custom fields';
+        },
       });
   }
 
