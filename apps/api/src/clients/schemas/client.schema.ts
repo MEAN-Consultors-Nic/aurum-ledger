@@ -34,6 +34,10 @@ export class Client {
 
   @Prop()
   deletedAt?: Date;
+
+  /** User-defined custom field values keyed by definition.key. */
+  @Prop({ type: Object, default: {} })
+  customValues: Record<string, unknown>;
 }
 
 export const ClientSchema = SchemaFactory.createForClass(Client);
