@@ -118,6 +118,70 @@ type ClientWithCustom = ClientItem & { customValues?: Record<string, unknown> };
 
         <!-- Overview -->
         <div *ngIf="activeTab === 'overview'" class="space-y-6 p-6">
+          <!-- Basic information -->
+          <div class="rounded-lg border border-slate-200 p-4">
+            <div class="flex items-center justify-between">
+              <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Basic information
+              </div>
+              <span *ngIf="basicSaveBanner"
+                class="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+                {{ basicSaveBanner }}
+              </span>
+            </div>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Name</label>
+                <input
+                  [(ngModel)]="basic.name"
+                  (blur)="saveBasic('name')"
+                  class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Contact name</label>
+                <input
+                  [(ngModel)]="basic.contactName"
+                  (blur)="saveBasic('contactName')"
+                  class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Email</label>
+                <input
+                  type="email"
+                  [(ngModel)]="basic.email"
+                  (blur)="saveBasic('email')"
+                  class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Phone</label>
+                <input
+                  [(ngModel)]="basic.phone"
+                  (blur)="saveBasic('phone')"
+                  class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Tags <span class="text-slate-400">(comma-separated)</span>
+                </label>
+                <input
+                  [(ngModel)]="basic.tagsText"
+                  (blur)="saveBasic('tags')"
+                  placeholder="VIP, hosting, support"
+                  class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <label class="sm:col-span-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <input type="checkbox" [(ngModel)]="basic.isActive" (change)="saveBasic('isActive')" />
+                <span class="text-sm text-slate-700">Active client</span>
+              </label>
+            </div>
+            <div *ngIf="basicError" class="mt-2 text-xs text-rose-600">{{ basicError }}</div>
+          </div>
+
           <div>
             <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</div>
             <textarea
@@ -290,6 +354,19 @@ export class ClientDetailComponent implements OnInit {
   private customValuesDirty = false;
   private customValuesTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Inline-edit drafts for basic info
+  basic = {
+    name: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    tagsText: '',
+    isActive: true,
+  };
+  basicSaveBanner = '';
+  basicError = '';
+  private basicBannerTimer: ReturnType<typeof setTimeout> | null = null;
+
   get tabs(): { key: Tab; label: string; count?: number }[] {
     return [
       { key: 'overview', label: 'Overview' },
@@ -350,6 +427,14 @@ export class ClientDetailComponent implements OnInit {
         this.payments = payments.items ?? [];
         this.notesDraft = this.client.notes ?? '';
         this.customValues = { ...(this.client.customValues ?? {}) };
+        this.basic = {
+          name: this.client.name ?? '',
+          contactName: this.client.contactName ?? '',
+          email: this.client.email ?? '',
+          phone: this.client.phone ?? '',
+          tagsText: (this.client.tags ?? []).join(', '),
+          isActive: !!this.client.isActive,
+        };
         this.isLoading = false;
       },
       error: () => {
@@ -363,10 +448,6 @@ export class ClientDetailComponent implements OnInit {
     if (!this.client) return [];
     const c = this.client;
     return [
-      {
-        label: 'Edit basic info',
-        action: () => this.router.navigate(['/clients'], { queryParams: { edit: c._id } }),
-      },
       {
         label: c.isActive ? 'Deactivate' : 'Activate',
         action: () => this.toggleStatus(),
@@ -382,6 +463,7 @@ export class ClientDetailComponent implements OnInit {
     this.clientsApi.update(this.client._id, { isActive: next }).subscribe({
       next: () => {
         if (this.client) this.client.isActive = next;
+        this.basic.isActive = next;
       },
     });
   }
@@ -398,6 +480,59 @@ export class ClientDetailComponent implements OnInit {
     this.clientsApi.remove(this.client._id).subscribe({
       next: () => this.router.navigate(['/clients']),
     });
+  }
+
+  saveBasic(field: 'name' | 'contactName' | 'email' | 'phone' | 'tags' | 'isActive') {
+    if (!this.client) return;
+    const payload: Partial<ClientItem> & { tags?: string[] } = {};
+    if (field === 'name') {
+      const next = this.basic.name.trim();
+      if (next === this.client.name) return;
+      if (next.length < 2) {
+        this.basicError = 'Name must be at least 2 characters';
+        this.basic.name = this.client.name;
+        return;
+      }
+      payload.name = next;
+    } else if (field === 'contactName') {
+      if ((this.basic.contactName ?? '') === (this.client.contactName ?? '')) return;
+      payload.contactName = this.basic.contactName.trim() || undefined;
+    } else if (field === 'email') {
+      if ((this.basic.email ?? '') === (this.client.email ?? '')) return;
+      payload.email = this.basic.email.trim() || undefined;
+    } else if (field === 'phone') {
+      if ((this.basic.phone ?? '') === (this.client.phone ?? '')) return;
+      payload.phone = this.basic.phone.trim() || undefined;
+    } else if (field === 'tags') {
+      const nextTags = this.basic.tagsText
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+      const currentTags = (this.client.tags ?? []).join(',');
+      if (nextTags.join(',') === currentTags) return;
+      payload.tags = nextTags;
+    } else if (field === 'isActive') {
+      if (this.basic.isActive === this.client.isActive) return;
+      payload.isActive = this.basic.isActive;
+    }
+
+    this.basicError = '';
+    this.clientsApi.update(this.client._id, payload as never).subscribe({
+      next: (updated) => {
+        if (!this.client) return;
+        this.client = { ...this.client, ...updated };
+        this.flashBasicSaved();
+      },
+      error: (err) => {
+        this.basicError = err?.error?.message ?? 'Unable to save change';
+      },
+    });
+  }
+
+  private flashBasicSaved() {
+    this.basicSaveBanner = 'Saved';
+    if (this.basicBannerTimer) clearTimeout(this.basicBannerTimer);
+    this.basicBannerTimer = setTimeout(() => (this.basicSaveBanner = ''), 1500);
   }
 
   saveNotes() {
