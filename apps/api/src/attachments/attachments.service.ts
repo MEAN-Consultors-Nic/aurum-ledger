@@ -20,7 +20,7 @@ export class AttachmentsService {
   ) {}
 
   async list(parentType: AttachmentParentType, parentId: string) {
-    return this.attachmentModel
+    const items = await this.attachmentModel
       .find({
         parentType,
         parentId: new Types.ObjectId(parentId),
@@ -29,6 +29,29 @@ export class AttachmentsService {
       })
       .populate('uploadedBy', 'name email')
       .sort({ uploadedAt: -1 });
+
+    // For images, attach a 1-hour signed GET URL so the panel can render
+    // inline thumbnails without N round-trips. Bucket stays private — every
+    // URL is short-lived and signed per-request.
+    return Promise.all(
+      items.map(async (doc) => {
+        const obj = doc.toObject() as unknown as Record<string, unknown>;
+        const mimeType = obj['mimeType'];
+        const s3Key = obj['s3Key'];
+        if (
+          typeof mimeType === 'string' &&
+          mimeType.startsWith('image/') &&
+          typeof s3Key === 'string'
+        ) {
+          try {
+            obj['previewUrl'] = await this.s3Service.presignDownload(s3Key);
+          } catch {
+            // Best-effort — if signing fails we still show the row, just no thumb.
+          }
+        }
+        return obj;
+      }),
+    );
   }
 
   /**
@@ -51,7 +74,8 @@ export class AttachmentsService {
     }
 
     const safeName = this.sanitizeFilename(file.originalname);
-    const key = `${parentType}/${parentId}/${this.uniqueSegment()}-${safeName}`;
+    const folder = this.folderForParent(parentType);
+    const key = `${folder}/${parentId}/${this.uniqueSegment()}-${safeName}`;
     const contentType = file.mimetype || 'application/octet-stream';
 
     const { bucket } = await this.s3Service.uploadObject(key, file.buffer, contentType);
@@ -91,6 +115,23 @@ export class AttachmentsService {
     await attachment.save();
     await this.s3Service.deleteObject(attachment.s3Key);
     return { deleted: true };
+  }
+
+  /** Maps the parent type to a human-friendly bucket folder. Pluralized so
+   *  AWS Console browsing actually reads well. */
+  private folderForParent(parentType: AttachmentParentType): string {
+    switch (parentType) {
+      case 'project':
+        return 'projects';
+      case 'estimate':
+        return 'estimates';
+      case 'contract':
+        return 'contracts';
+      case 'task':
+        return 'tasks';
+      case 'client':
+        return 'clients';
+    }
   }
 
   private sanitizeFilename(name: string): string {

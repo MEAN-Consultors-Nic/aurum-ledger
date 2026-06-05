@@ -18,5 +18,7 @@ export type AttachmentItem = {
   uploadedBy?: string | AttachmentUploader;
   uploadedAt?: string;
   createdAt?: string;
+  /** Short-lived signed GET URL — present only for image mime types. */
+  previewUrl?: string;
 };
 

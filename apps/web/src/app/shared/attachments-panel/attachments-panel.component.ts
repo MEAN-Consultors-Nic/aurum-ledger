@@ -23,17 +23,22 @@ type UploadingFile = {
   error?: string;
 };
 
+type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'sheet' | 'archive' | 'code' | 'file';
+
 @Component({
   selector: 'app-attachments-panel',
   standalone: true,
   imports: [CommonModule],
   template: `
     <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <header class="flex items-start justify-between border-b border-slate-100 px-5 py-4">
+      <header class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
         <div>
-          <div class="text-sm font-semibold text-slate-900">Attachments</div>
+          <div class="text-sm font-semibold text-slate-900">
+            Attachments
+            <span *ngIf="items.length > 0" class="ml-1 text-slate-400">({{ items.length }})</span>
+          </div>
           <div class="text-xs text-slate-500">
-            Files are stored privately in S3. Downloads use short-lived signed URLs.
+            Files are stored privately in S3. Image previews and downloads use short-lived signed URLs.
           </div>
         </div>
         <button
@@ -54,8 +59,10 @@ type UploadingFile = {
 
       <!-- Drop area -->
       <div
-        class="m-5 rounded-lg border-2 border-dashed px-4 py-6 text-center text-xs transition"
-        [ngClass]="isDragging ? 'border-slate-900 bg-slate-50 text-slate-900' : 'border-slate-200 text-slate-500'"
+        class="m-5 rounded-xl border-2 border-dashed px-4 py-6 text-center text-xs transition"
+        [ngClass]="isDragging
+          ? 'border-slate-900 bg-slate-50 text-slate-900'
+          : 'border-slate-200 text-slate-500'"
         (dragenter)="onDragEnter($event)"
         (dragover)="onDragOver($event)"
         (dragleave)="onDragLeave($event)"
@@ -65,12 +72,12 @@ type UploadingFile = {
       </div>
 
       <!-- In-progress uploads -->
-      <ul *ngIf="uploading.length > 0" class="space-y-1 border-t border-slate-100 px-5 py-3">
+      <ul *ngIf="uploading.length > 0" class="space-y-1 px-5 pb-3">
         <li *ngFor="let u of uploading" class="text-xs">
           <div class="flex items-center justify-between">
             <span class="truncate font-medium text-slate-700">{{ u.name }}</span>
-            <span class="ml-2 tabular-nums text-slate-500"
-              [ngClass]="u.error ? 'text-rose-600' : ''">
+            <span class="ml-2 tabular-nums"
+              [ngClass]="u.error ? 'text-rose-600' : 'text-slate-500'">
               {{ u.error ? u.error : (u.total > 0 ? ((u.loaded / u.total) * 100 | number:'1.0-0') + '%' : '…') }}
             </span>
           </div>
@@ -81,36 +88,122 @@ type UploadingFile = {
         </li>
       </ul>
 
-      <!-- Existing attachments -->
-      <ul *ngIf="items.length > 0" class="divide-y divide-slate-100">
-        <li *ngFor="let f of items" class="flex items-center gap-3 px-5 py-2.5">
-          <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[10px] font-bold uppercase text-slate-600">
-            {{ extension(f.filename) }}
-          </span>
-          <div class="min-w-0 flex-1">
-            <div class="truncate text-sm font-medium text-slate-900">{{ f.filename }}</div>
-            <div class="text-[11px] text-slate-500">
-              {{ formatBytes(f.sizeBytes) }}
-              <span *ngIf="uploaderName(f) as u"> · uploaded by {{ u }}</span>
-              <span *ngIf="f.uploadedAt"> · {{ formatRelative(f.uploadedAt) }}</span>
+      <!-- Grid -->
+      <div *ngIf="items.length > 0"
+        class="grid gap-3 px-5 pb-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <article
+          *ngFor="let f of items"
+          class="group relative overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-slate-300 hover:shadow-md"
+        >
+          <!-- Preview area (square) -->
+          <div class="relative aspect-square w-full overflow-hidden bg-slate-100"
+            [ngClass]="cardBg(kindOf(f))">
+            <!-- Image thumbnail -->
+            <img
+              *ngIf="kindOf(f) === 'image' && f.previewUrl"
+              [src]="f.previewUrl"
+              [alt]="f.filename"
+              loading="lazy"
+              class="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+            />
+            <!-- Image without preview URL fallback -->
+            <div *ngIf="kindOf(f) === 'image' && !f.previewUrl"
+              class="flex h-full w-full items-center justify-center text-slate-400">
+              <svg class="h-12 w-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="9" cy="9" r="2"/>
+                <path d="m21 15-5-5L5 21"/>
+              </svg>
+            </div>
+            <!-- Non-image: icon + extension -->
+            <div *ngIf="kindOf(f) !== 'image'"
+              class="flex h-full w-full flex-col items-center justify-center gap-2"
+              [ngClass]="iconColor(kindOf(f))">
+              <ng-container [ngSwitch]="kindOf(f)">
+                <svg *ngSwitchCase="'video'" class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="6" width="14" height="12" rx="2"/>
+                  <polygon points="22 8 16 12 22 16 22 8" fill="currentColor"/>
+                </svg>
+                <svg *ngSwitchCase="'audio'" class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18V5l12-2v13"/>
+                  <circle cx="6" cy="18" r="3"/>
+                  <circle cx="18" cy="16" r="3"/>
+                </svg>
+                <svg *ngSwitchCase="'pdf'" class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6"/>
+                </svg>
+                <svg *ngSwitchCase="'doc'" class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6"/>
+                  <path d="M8 13h8"/>
+                  <path d="M8 17h6"/>
+                </svg>
+                <svg *ngSwitchCase="'sheet'" class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+                </svg>
+                <svg *ngSwitchCase="'archive'" class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 8v13H3V8"/>
+                  <path d="M1 3h22v5H1z"/>
+                  <path d="M10 12h4"/>
+                </svg>
+                <svg *ngSwitchCase="'code'" class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 18 22 12 16 6"/>
+                  <polyline points="8 6 2 12 8 18"/>
+                </svg>
+                <svg *ngSwitchDefault class="h-14 w-14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <path d="M14 2v6h6"/>
+                </svg>
+              </ng-container>
+              <span class="rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                {{ extension(f.filename) }}
+              </span>
+            </div>
+
+            <!-- Hover overlay with actions -->
+            <div class="absolute inset-0 flex items-end justify-end gap-1.5 bg-gradient-to-t from-slate-900/70 via-slate-900/0 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+              <button
+                type="button"
+                (click)="download(f)"
+                title="Download"
+                aria-label="Download"
+                class="rounded-md bg-white/90 p-1.5 text-slate-800 transition hover:bg-white"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                (click)="remove(f)"
+                title="Delete"
+                aria-label="Delete"
+                class="rounded-md bg-rose-500/90 p-1.5 text-white transition hover:bg-rose-500"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            (click)="download(f)"
-            class="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
-          >
-            Download
-          </button>
-          <button
-            type="button"
-            (click)="remove(f)"
-            class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-rose-700 hover:bg-rose-100"
-          >
-            Delete
-          </button>
-        </li>
-      </ul>
+
+          <!-- Footer with filename + meta -->
+          <div class="px-3 py-2">
+            <div class="truncate text-xs font-medium text-slate-900" [title]="f.filename">
+              {{ f.filename }}
+            </div>
+            <div class="mt-0.5 flex items-center justify-between text-[10px] text-slate-500">
+              <span>{{ formatBytes(f.sizeBytes) }}</span>
+              <span *ngIf="f.uploadedAt">{{ formatRelative(f.uploadedAt) }}</span>
+            </div>
+          </div>
+        </article>
+      </div>
 
       <div *ngIf="!isLoading && items.length === 0 && uploading.length === 0"
         class="px-5 pb-5 text-center text-xs text-slate-500">
@@ -209,18 +302,34 @@ export class AttachmentsPanelComponent implements OnChanges {
           } else if (event.kind === 'done') {
             this.items = [event.attachment, ...this.items];
             this.uploading = this.uploading.filter((u) => u.id !== id);
+            // The freshly created row doesn't have a previewUrl yet (the
+            // controller doesn't sign on create). Refresh the list so the
+            // new image gets its thumbnail.
+            if (event.attachment.mimeType?.startsWith('image/')) {
+              this.load();
+            }
           }
         },
         error: (err) => {
           entry.error = err?.error?.message ?? err?.message ?? 'Upload failed';
           this.uploading = [...this.uploading];
-          // Leave the failed row in place for visibility for ~5s then drop.
           setTimeout(() => {
             this.uploading = this.uploading.filter((u) => u.id !== id);
           }, 5000);
         },
       });
     }
+  }
+
+  download(f: AttachmentItem) {
+    this.api.download(f._id).subscribe({
+      next: (res) => {
+        window.open(res.url, '_blank', 'noopener');
+      },
+      error: (err) => {
+        this.error = err?.error?.message ?? 'Unable to generate download link';
+      },
+    });
   }
 
   async remove(f: AttachmentItem) {
@@ -236,27 +345,65 @@ export class AttachmentsPanelComponent implements OnChanges {
     });
   }
 
-  download(f: AttachmentItem) {
-    this.api.download(f._id).subscribe({
-      next: (res) => {
-        // Open the presigned URL in a new tab — fresh 10-min signed URL.
-        window.open(res.url, '_blank', 'noopener');
-      },
-      error: (err) => {
-        this.error = err?.error?.message ?? 'Unable to generate download link';
-      },
-    });
+  kindOf(f: AttachmentItem): FileKind {
+    const mt = f.mimeType ?? '';
+    const ext = (f.filename.split('.').pop() ?? '').toLowerCase();
+    if (mt.startsWith('image/')) return 'image';
+    if (mt.startsWith('video/')) return 'video';
+    if (mt.startsWith('audio/')) return 'audio';
+    if (mt === 'application/pdf' || ext === 'pdf') return 'pdf';
+    if (['doc', 'docx', 'odt', 'rtf', 'txt', 'md'].includes(ext)) return 'doc';
+    if (['xls', 'xlsx', 'csv', 'ods'].includes(ext)) return 'sheet';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return 'archive';
+    if (['js', 'ts', 'tsx', 'jsx', 'json', 'html', 'css', 'scss', 'py', 'sh', 'go', 'rs', 'java', 'rb', 'php', 'sql'].includes(ext)) return 'code';
+    return 'file';
   }
 
-  uploaderName(f: AttachmentItem): string {
-    if (!f.uploadedBy) return '';
-    if (typeof f.uploadedBy === 'string') return '';
-    return f.uploadedBy.name ?? f.uploadedBy.email ?? '';
+  cardBg(kind: FileKind): string {
+    switch (kind) {
+      case 'video':
+        return 'bg-gradient-to-br from-violet-50 to-violet-100';
+      case 'audio':
+        return 'bg-gradient-to-br from-amber-50 to-amber-100';
+      case 'pdf':
+        return 'bg-gradient-to-br from-rose-50 to-rose-100';
+      case 'doc':
+        return 'bg-gradient-to-br from-sky-50 to-sky-100';
+      case 'sheet':
+        return 'bg-gradient-to-br from-emerald-50 to-emerald-100';
+      case 'archive':
+        return 'bg-gradient-to-br from-yellow-50 to-amber-100';
+      case 'code':
+        return 'bg-gradient-to-br from-slate-100 to-slate-200';
+      default:
+        return 'bg-slate-100';
+    }
+  }
+
+  iconColor(kind: FileKind): string {
+    switch (kind) {
+      case 'video':
+        return 'text-violet-600';
+      case 'audio':
+        return 'text-amber-600';
+      case 'pdf':
+        return 'text-rose-600';
+      case 'doc':
+        return 'text-sky-600';
+      case 'sheet':
+        return 'text-emerald-600';
+      case 'archive':
+        return 'text-amber-700';
+      case 'code':
+        return 'text-slate-700';
+      default:
+        return 'text-slate-500';
+    }
   }
 
   extension(name: string): string {
     const ext = name.split('.').pop() ?? '';
-    return ext.length <= 5 ? ext : 'FILE';
+    return ext.length <= 5 ? ext.toUpperCase() : 'FILE';
   }
 
   formatBytes(bytes: number): string {
