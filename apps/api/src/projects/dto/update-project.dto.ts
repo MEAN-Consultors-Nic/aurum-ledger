@@ -4,6 +4,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   Max,
@@ -42,4 +43,8 @@ export class UpdateProjectDto {
   @Max(100)
   @Type(() => Number)
   progress?: number;
+
+  @IsOptional()
+  @IsObject()
+  customValues?: Record<string, unknown>;
 }

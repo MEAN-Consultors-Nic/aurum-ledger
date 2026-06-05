@@ -11,6 +11,7 @@ import { BudgetsModule } from './budgets/budgets.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ClientsModule } from './clients/clients.module';
 import { ContractsModule } from './contracts/contracts.module';
+import { CustomFieldsModule } from './custom-fields/custom-fields.module';
 import { EstimatesModule } from './estimates/estimates.module';
 import { FinanceModule } from './finance/finance.module';
 import { ImportsModule } from './imports/imports.module';
@@ -64,6 +65,7 @@ import { UsersModule } from './users/users.module';
     }),
     AuthModule,
     UsersModule,
+    CustomFieldsModule,
     AccountsModule,
     AssetsModule,
     AttachmentsModule,

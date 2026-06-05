@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { GithubService } from '../github/github.service';
 import { SettingsService } from '../settings/settings.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -41,6 +42,7 @@ export class ProjectsService {
     private readonly credentialModel: Model<ProjectCredentialDocument>,
     private readonly githubService: GithubService,
     private readonly settingsService: SettingsService,
+    private readonly customFieldsService: CustomFieldsService,
   ) {}
 
   async list(filter: { status?: string; clientId?: string; search?: string } = {}) {
@@ -211,14 +213,21 @@ export class ProjectsService {
   }
 
   async update(id: string, dto: UpdateProjectDto, userId?: Types.ObjectId) {
+    const update: Record<string, unknown> = {
+      ...dto,
+      startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+      dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      updatedBy: userId,
+    };
+    if (dto.customValues !== undefined) {
+      update.customValues = await this.customFieldsService.validateValues(
+        'project',
+        dto.customValues,
+      );
+    }
     const project = await this.projectModel.findOneAndUpdate(
       { _id: id, deletedAt: { $exists: false } },
-      {
-        ...dto,
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-        updatedBy: userId,
-      },
+      update,
       { new: true },
     );
     if (!project) {

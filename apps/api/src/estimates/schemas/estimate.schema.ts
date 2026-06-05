@@ -68,6 +68,10 @@ export class Estimate {
   @Prop()
   deletedAt?: Date;
 
+  /** User-defined custom field values keyed by definition.key. */
+  @Prop({ type: Object, default: {} })
+  customValues: Record<string, unknown>;
+
   // ----- Client-portal share link -----
   @Prop()
   shareToken?: string;

@@ -1,4 +1,4 @@
-import { IsArray, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsEmail, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateClientDto {
   @IsOptional()
@@ -28,4 +28,8 @@ export class UpdateClientDto {
 
   @IsOptional()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  customValues?: Record<string, unknown>;
 }

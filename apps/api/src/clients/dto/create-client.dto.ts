@@ -1,4 +1,4 @@
-import { IsArray, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsEmail, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateClientDto {
   @IsString()
@@ -24,4 +24,8 @@ export class CreateClientDto {
   @IsOptional()
   @IsArray()
   tags?: string[];
+
+  @IsOptional()
+  @IsObject()
+  customValues?: Record<string, unknown>;
 }

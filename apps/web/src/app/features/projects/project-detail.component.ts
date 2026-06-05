@@ -17,6 +17,7 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
 import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
 import { GithubPanelComponent, GithubRepoLink } from '../../shared/github-panel/github-panel.component';
 import { AttachmentsPanelComponent } from '../../shared/attachments-panel/attachments-panel.component';
+import { CustomFieldsPanelComponent } from '../../shared/custom-fields-panel/custom-fields-panel.component';
 import { TasksBoardComponent } from './tasks-board.component';
 
 type Tab = 'overview' | 'tasks' | 'notes' | 'credentials' | 'deliverables';
@@ -151,6 +152,7 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
     SharePanelComponent,
     GithubPanelComponent,
     AttachmentsPanelComponent,
+    CustomFieldsPanelComponent,
     TasksBoardComponent,
   ],
   template: `
@@ -258,6 +260,18 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
               placeholder="Add an overview, scope of work, or any context for this project…"
               class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             ></textarea>
+          </div>
+
+          <!-- Custom fields -->
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Custom fields</div>
+            <div class="mt-2">
+              <app-custom-fields-panel
+                entityType="project"
+                [values]="projectCustomValues"
+                (valuesChange)="onCustomValuesChange($event)"
+              />
+            </div>
           </div>
         </div>
 
@@ -613,6 +627,9 @@ export class ProjectDetailComponent implements OnInit {
   activeTab: Tab = 'overview';
 
   descriptionDraft = '';
+  projectCustomValues: Record<string, unknown> = {};
+  private customValuesDirty = false;
+  private customValuesSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   // task form
   newTaskTitle = '';
@@ -701,6 +718,9 @@ export class ProjectDetailComponent implements OnInit {
         this.credentials = credentials;
         this.availableTemplates = templates;
         this.descriptionDraft = project.description ?? '';
+        this.projectCustomValues = {
+          ...((project as typeof project & { customValues?: Record<string, unknown> }).customValues ?? {}),
+        };
         this.shareState = {
           shareToken: project.shareToken,
           shareCreatedAt: project.shareCreatedAt,
@@ -774,6 +794,27 @@ export class ProjectDetailComponent implements OnInit {
         this.project!.status = status;
       },
     });
+  }
+
+  onCustomValuesChange(values: Record<string, unknown>) {
+    this.projectCustomValues = values;
+    this.customValuesDirty = true;
+    if (this.customValuesSaveTimer) clearTimeout(this.customValuesSaveTimer);
+    // Debounce so quick edits don't spam the API.
+    this.customValuesSaveTimer = setTimeout(() => this.persistCustomValues(), 700);
+  }
+
+  private persistCustomValues() {
+    if (!this.project || !this.customValuesDirty) return;
+    this.customValuesDirty = false;
+    this.projectsApi
+      .update(this.project._id, { customValues: this.projectCustomValues } as never)
+      .subscribe({
+        error: () => {
+          // surface but keep the local state
+          this.error = 'Unable to save custom fields';
+        },
+      });
   }
 
   saveDescription() {

@@ -4,12 +4,19 @@ import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } 
 import { ClientsApiService } from '../../core/services/clients-api.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { ClientItem } from '../../core/models/client.model';
+import { CustomFieldsPanelComponent } from '../../shared/custom-fields-panel/custom-fields-panel.component';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 
 @Component({
   selector: 'app-clients',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, ActionMenuComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule,
+    ActionMenuComponent,
+    CustomFieldsPanelComponent,
+  ],
   template: `
     <div class="space-y-6">
       <div class="flex items-center justify-between">
@@ -157,6 +164,13 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
             <span>Active</span>
           </div>
 
+          <!-- Custom fields -->
+          <app-custom-fields-panel
+            entityType="client"
+            [values]="customValues"
+            (valuesChange)="customValues = $event"
+          />
+
           <div class="flex justify-end gap-3">
             <button type="button" class="text-sm text-slate-500" (click)="closeModal()">
               Cancel
@@ -183,6 +197,8 @@ export class ClientsComponent implements OnInit {
   editing: ClientItem | null = null;
   search = '';
   statusFilter: 'all' | 'active' | 'inactive' = 'all';
+
+  customValues: Record<string, unknown> = {};
 
   form: FormGroup;
 
@@ -233,6 +249,7 @@ export class ClientsComponent implements OnInit {
 
   openCreate() {
     this.editing = null;
+    this.customValues = {};
     this.form.reset({
       name: '',
       contactName: '',
@@ -258,6 +275,7 @@ export class ClientsComponent implements OnInit {
 
   openEdit(item: ClientItem) {
     this.editing = item;
+    this.customValues = { ...((item as ClientItem & { customValues?: Record<string, unknown> }).customValues ?? {}) };
     this.form.reset({
       name: item.name,
       contactName: item.contactName ?? '',
@@ -304,6 +322,7 @@ export class ClientsComponent implements OnInit {
       phone: this.form.value.phone || undefined,
       notes: this.form.value.notes || undefined,
       tags: tags.length > 0 ? tags : undefined,
+      customValues: this.customValues,
     };
 
     if (this.editing) {

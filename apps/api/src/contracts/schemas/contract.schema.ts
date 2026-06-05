@@ -53,6 +53,10 @@ export class Contract {
   @Prop()
   deletedAt?: Date;
 
+  /** User-defined custom field values keyed by definition.key. */
+  @Prop({ type: Object, default: {} })
+  customValues: Record<string, unknown>;
+
   @Prop()
   paymentOmittedAt?: Date;
 
