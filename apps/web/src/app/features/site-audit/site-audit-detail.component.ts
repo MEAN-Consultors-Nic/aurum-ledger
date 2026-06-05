@@ -42,9 +42,13 @@ import {
             <button
               type="button"
               (click)="remove()"
-              class="rounded-md border border-rose-200 px-3 py-1.5 text-xs text-rose-700 transition hover:bg-rose-50"
-            >Delete</button>
+              [disabled]="deleting()"
+              class="rounded-md border border-rose-200 px-3 py-1.5 text-xs text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+            >{{ deleting() ? 'Deleting…' : 'Delete' }}</button>
           </div>
+        </div>
+        <div *ngIf="deleteError()" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          {{ deleteError() }}
         </div>
 
         <!-- Running state -->
@@ -313,6 +317,8 @@ export class SiteAuditDetailComponent implements OnInit, OnDestroy {
   convertError = signal('');
   convertedEstimateId = signal<string | null>(null);
   convertClientId = '';
+  deleting = signal(false);
+  deleteError = signal('');
 
   mobilePS = computed<PageSpeedSnapshot | undefined>(
     () => this.audit()?.findings?.pageSpeed?.mobile,
@@ -389,13 +395,30 @@ export class SiteAuditDetailComponent implements OnInit, OnDestroy {
     if (!a) return;
     const ok = await this.confirm.open({
       title: 'Delete audit',
-      message: `Delete the audit for ${a.normalizedUrl}?`,
+      message: `Delete the audit for ${a.normalizedUrl}? This cannot be undone.`,
       danger: true,
       confirmText: 'Delete',
     });
     if (!ok) return;
+    this.deleting.set(true);
+    this.deleteError.set('');
+    if (this.pollHandle !== null) {
+      clearTimeout(this.pollHandle);
+      this.pollHandle = null;
+    }
     this.api.remove(a._id).subscribe({
-      next: () => this.router.navigate(['/audits']),
+      next: () => {
+        this.deleting.set(false);
+        this.router.navigate(['/audits']);
+      },
+      error: (err) => {
+        this.deleting.set(false);
+        this.deleteError.set(
+          err?.error?.message ??
+            err?.message ??
+            'Could not delete the audit. Check the API logs.',
+        );
+      },
     });
   }
 

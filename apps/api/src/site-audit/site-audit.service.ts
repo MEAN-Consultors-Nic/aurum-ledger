@@ -70,8 +70,11 @@ export class SiteAuditService {
   }
 
   async remove(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException('Audit not found');
+    }
     const doc = await this.model.findOneAndUpdate(
-      { _id: id, deletedAt: { $exists: false } },
+      { _id: new Types.ObjectId(id), deletedAt: { $exists: false } },
       { deletedAt: new Date() },
       { new: true },
     );
