@@ -27,6 +27,7 @@ import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses
 import { ReportsModule } from './reports/reports.module';
 import { LoansModule } from './loans/loans.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { SearchModule } from './search/search.module';
 import { SettingsModule } from './settings/settings.module';
 import { ServicesModule } from './services/services.module';
 import { SiteMonitorModule } from './site-monitor/site-monitor.module';
@@ -83,6 +84,7 @@ import { UsersModule } from './users/users.module';
     LoansModule,
     SubscriptionsModule,
     SiteMonitorModule,
+    SearchModule,
     ImportsModule,
     NotificationsModule,
     ProjectsModule,

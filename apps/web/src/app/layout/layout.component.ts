@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../core/services/auth.service';
 import { NotificationsApiService } from '../core/services/notifications-api.service';
 import { ConfirmDialogComponent } from '../shared/confirm-dialog/confirm-dialog.component';
 import { IconComponent } from '../shared/icon/icon.component';
+import { CommandPaletteComponent } from '../shared/command-palette/command-palette.component';
 
 type NavItem = { label: string; path: string; icon: string };
 type NavGroup = { key: string; label: string; items: NavItem[] };
@@ -64,7 +65,13 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, ConfirmDialogComponent, IconComponent],
+  imports: [
+    CommonModule,
+    RouterModule,
+    ConfirmDialogComponent,
+    IconComponent,
+    CommandPaletteComponent,
+  ],
   template: `
     <div class="min-h-screen bg-slate-50 text-slate-900">
       <div class="flex min-h-screen">
@@ -151,6 +158,21 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
               <div class="text-lg font-semibold">Dashboard</div>
             </div>
             <div class="flex items-center gap-3">
+              <button
+                type="button"
+                (click)="openSearch()"
+                title="Search (⌘K)"
+                class="flex items-center gap-2 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              >
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                Search
+                <kbd class="ml-1 hidden rounded border border-slate-200 bg-slate-50 px-1 font-mono text-[10px] tracking-wider text-slate-500 lg:inline">
+                  ⌘K
+                </kbd>
+              </button>
               <a
                 routerLink="/notifications"
                 class="flex items-center gap-2 rounded border border-slate-200 px-3 py-1.5 text-xs uppercase tracking-wide text-slate-700"
@@ -178,10 +200,13 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
         </main>
       </div>
       <app-confirm-dialog />
+      <app-command-palette #palette />
     </div>
   `,
 })
 export class LayoutComponent implements OnInit {
+  @ViewChild('palette') palette?: CommandPaletteComponent;
+
   isMobileNavOpen = false;
   alertCount = 0;
 
@@ -260,6 +285,10 @@ export class LayoutComponent implements OnInit {
       next: () => this.router.navigate(['/login']),
       error: () => this.router.navigate(['/login']),
     });
+  }
+
+  openSearch() {
+    this.palette?.open();
   }
 
   toggleMobileNav() {
