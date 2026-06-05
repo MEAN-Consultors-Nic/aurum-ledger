@@ -46,13 +46,29 @@ export class S3Service {
     return { s3, bucket: cfg.bucket };
   }
 
-  /** Presigned URL the browser will PUT the file bytes to (15-minute TTL). */
-  async presignUpload(key: string, contentType: string): Promise<string> {
+  /** Presigned URL the browser will PUT the file bytes to (15-minute TTL).
+   *  We deliberately DO NOT include ContentType in the command — including
+   *  it makes the SDK fold it into the canonical request used for signing
+   *  but it doesn't end up in SignedHeaders, which causes S3 to reject the
+   *  PUT with 400 in some SDK/bucket combos. The browser sends Content-Type
+   *  as an unsigned header; S3 stores whatever the browser sends. */
+  async presignUpload(key: string, _contentType: string): Promise<string> {
     const { s3, bucket } = await this.client();
     return getSignedUrl(
       s3,
-      new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
-      { expiresIn: 60 * 15 },
+      new PutObjectCommand({ Bucket: bucket, Key: key }),
+      {
+        expiresIn: 60 * 15,
+        // Belt-and-braces: keep all the SDK metadata headers off the
+        // canonical request so SignedHeaders stays 'host' only.
+        unhoistableHeaders: new Set([
+          'x-amz-sdk-checksum-algorithm',
+          'x-amz-checksum-crc32',
+          'x-amz-checksum-crc32c',
+          'x-amz-checksum-sha1',
+          'x-amz-checksum-sha256',
+        ]),
+      },
     );
   }
 
