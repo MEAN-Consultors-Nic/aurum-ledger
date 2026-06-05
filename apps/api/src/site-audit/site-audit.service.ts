@@ -159,6 +159,13 @@ export class SiteAuditService {
   // Background pipeline
   // ------------------------------------------------------------------
 
+  /**
+   * Hard ceiling for the whole audit. If something genuinely hangs past
+   * this we force-fail; nothing we ship should ever take longer than this
+   * in steady state (probes + AI usually finish under 2 minutes).
+   */
+  private static readonly WALL_CLOCK_MS = 4 * 60 * 1000;
+
   private async run(id: string): Promise<void> {
     const doc = await this.model.findById(id);
     if (!doc) return;
@@ -167,23 +174,49 @@ export class SiteAuditService {
     await doc.save();
 
     try {
-      const url = doc.normalizedUrl;
-      const parsed = new URL(url);
-      const origin = `${parsed.protocol}//${parsed.host}`;
+      await Promise.race([
+        this.runPipeline(doc),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Audit exceeded wall-clock timeout')),
+            SiteAuditService.WALL_CLOCK_MS,
+          ),
+        ),
+      ]);
+      doc.status = 'completed';
+      doc.completedAt = new Date();
+      await doc.save();
+    } catch (err) {
+      this.logger.error(`Audit ${id} failed: ${(err as Error).message}`);
+      const reloaded = await this.model.findById(id);
+      if (reloaded && reloaded.status !== 'completed') {
+        reloaded.status = 'failed';
+        reloaded.error = (err as Error).message?.slice(0, 500);
+        reloaded.completedAt = new Date();
+        await reloaded.save();
+      }
+    }
+  }
 
-      // -------- Probes (mostly parallel) --------
-      const [homepage, screenshotUrl, sitemap, whois, ssl, mobilePS, desktopPS] =
-        await Promise.all([
-          this.fetcher.fetch(url),
-          this.screenshot.capture(url),
-          this.sitemap.scan(origin),
-          this.whois.lookup(parsed.hostname),
-          this.runSsl(url),
-          this.pageSpeed.run(url, 'mobile'),
-          this.pageSpeed.run(url, 'desktop'),
-        ]);
+  private async runPipeline(doc: SiteAuditDocument): Promise<void> {
+    const url = doc.normalizedUrl;
+    const parsed = new URL(url);
+    const origin = `${parsed.protocol}//${parsed.host}`;
 
-      doc.screenshotUrl = screenshotUrl;
+    // -------- Probes (all isolated; one failure cannot crash the rest) --------
+    const [homepage, screenshotUrl, sitemap, whois, ssl, mobilePS, desktopPS] =
+      await Promise.all([
+        this.safe('homepage', () => this.fetcher.fetch(url)),
+        this.safe('screenshot', () => this.screenshot.capture(url)),
+        this.safe('sitemap', () => this.sitemap.scan(origin)),
+        this.safe('whois', () => this.whois.lookup(parsed.hostname)),
+        this.safe('ssl', () => this.runSsl(url)),
+        this.safe('pagespeed-mobile', () => this.pageSpeed.run(url, 'mobile')),
+        this.safe('pagespeed-desktop', () => this.pageSpeed.run(url, 'desktop')),
+      ]);
+
+    doc.screenshotUrl = screenshotUrl ?? undefined;
+    if (homepage) {
       doc.findings.homepage = {
         finalUrl: homepage.finalUrl,
         status: homepage.status,
@@ -194,62 +227,71 @@ export class SiteAuditService {
         title: undefined,
         language: undefined,
       };
-      doc.findings.pageSpeed = { mobile: mobilePS, desktop: desktopPS };
-      doc.findings.whois = whois;
-      doc.findings.ssl = ssl;
+    }
+    doc.findings.pageSpeed = { mobile: mobilePS, desktop: desktopPS };
+    doc.findings.whois = whois;
+    doc.findings.ssl = ssl;
 
-      let homepageText = '';
-      const headersForAi = homepage.headers;
-      const htmlHead = homepage.body ? homepage.body.slice(0, 5000) : '';
+    let homepageText = '';
+    const headersForAi = homepage?.headers ?? {};
+    const htmlHead = homepage?.body ? homepage.body.slice(0, 5000) : '';
 
-      if (homepage.ok && homepage.body) {
-        const analyzed = this.html.analyze({
-          url,
-          body: homepage.body,
-          headers: homepage.headers,
-        });
+    if (homepage?.ok && homepage.body) {
+      const analyzed = this.html.analyze({
+        url,
+        body: homepage.body,
+        headers: homepage.headers,
+      });
+      if (doc.findings.homepage) {
         doc.findings.homepage.title = analyzed.title;
         doc.findings.homepage.language = analyzed.language;
-        doc.findings.seo = {
-          title: analyzed.title,
-          titleLength: analyzed.title?.length,
-          description: analyzed.description,
-          descriptionLength: analyzed.description?.length,
-          canonical: analyzed.canonical,
-          robotsMeta: analyzed.robotsMeta,
-          hreflang: analyzed.hreflang,
-          openGraph: analyzed.openGraph,
-          twitterCard: analyzed.twitterCard,
-          schemaTypes: analyzed.schemaTypes,
-          headings: analyzed.headings,
-          images: analyzed.images,
-          checks: analyzed.checks,
-        };
-        doc.findings.social = analyzed.social;
-        doc.findings.stack = analyzed.stack;
-
-        homepageText = this.html.extractTextSample(homepage.body, 5000);
       }
+      doc.findings.seo = {
+        title: analyzed.title,
+        titleLength: analyzed.title?.length,
+        description: analyzed.description,
+        descriptionLength: analyzed.description?.length,
+        canonical: analyzed.canonical,
+        robotsMeta: analyzed.robotsMeta,
+        hreflang: analyzed.hreflang,
+        openGraph: analyzed.openGraph,
+        twitterCard: analyzed.twitterCard,
+        schemaTypes: analyzed.schemaTypes,
+        headings: analyzed.headings,
+        images: analyzed.images,
+        checks: analyzed.checks,
+      };
+      doc.findings.social = analyzed.social;
+      doc.findings.stack = analyzed.stack;
+      homepageText = this.html.extractTextSample(homepage.body, 5000);
+    }
 
+    if (sitemap) {
       doc.findings.sitemap = sitemap.sitemap;
       doc.findings.robots = sitemap.robots;
-      doc.markModified('findings');
-      await doc.save();
+    }
+    doc.markModified('findings');
+    await doc.save();
 
-      // -------- AI layer (sequential, individual try/catch) --------
-      if (this.ai.isReady) {
-        await this.runAi(doc, headersForAi, htmlHead, sitemap.sampleUrls, homepageText);
-      }
+    // -------- AI layer (each task isolated) --------
+    if (this.ai.isReady) {
+      await this.runAi(
+        doc,
+        headersForAi,
+        htmlHead,
+        sitemap?.sampleUrls ?? [],
+        homepageText,
+      );
+    }
+  }
 
-      doc.status = 'completed';
-      doc.completedAt = new Date();
-      await doc.save();
+  /** Run a probe, swallow any throw, log it. Returns undefined on failure. */
+  private async safe<T>(label: string, fn: () => Promise<T>): Promise<T | undefined> {
+    try {
+      return await fn();
     } catch (err) {
-      this.logger.error(`Audit ${id} failed: ${(err as Error).message}`);
-      doc.status = 'failed';
-      doc.error = (err as Error).message?.slice(0, 500);
-      doc.completedAt = new Date();
-      await doc.save();
+      this.logger.warn(`Probe "${label}" failed: ${(err as Error).message}`);
+      return undefined;
     }
   }
 
@@ -279,58 +321,52 @@ export class SiteAuditService {
       }
     }
 
-    const tasks: Promise<void>[] = [];
+    // Each task is fully isolated. Whichever finishes first writes its
+    // own field + persists immediately so a later failure (or the
+    // wall-clock) can't blank out work that already succeeded.
+    const persist = async (field: keyof typeof ai, value: unknown) => {
+      (ai as Record<string, unknown>)[field] = value;
+      doc.markModified('ai');
+      try {
+        await doc.save();
+      } catch (e) {
+        this.logger.warn(`ai save failed: ${(e as Error).message}`);
+      }
+    };
 
-    tasks.push(
-      this.ai
-        .executiveSummary(doc.findings, homepageText)
-        .then((s) => {
-          ai.executiveSummary = s;
-        })
-        .catch((e) => this.logger.warn(`exec summary: ${(e as Error).message}`)),
-    );
+    const maybePersist = async (
+      field: keyof typeof ai,
+      value: unknown,
+    ): Promise<void> => {
+      if (value) await persist(field, value);
+    };
 
-    tasks.push(
-      this.ai
-        .stackReasoning(doc.findings, headers, htmlHead)
-        .then((s) => {
-          ai.stackReasoning = s;
-        })
-        .catch((e) => this.logger.warn(`stack reasoning: ${(e as Error).message}`)),
-    );
-
-    tasks.push(
-      this.ai
-        .contentAnalysis(homepageText, interior)
-        .then((s) => {
-          ai.contentAnalysis = s;
-        })
-        .catch((e) => this.logger.warn(`content analysis: ${(e as Error).message}`)),
-    );
-
+    const tasks: Promise<void>[] = [
+      this.safe('ai:exec', () =>
+        this.ai.executiveSummary(doc.findings, homepageText),
+      ).then((v) => maybePersist('executiveSummary', v)),
+      this.safe('ai:stack', () =>
+        this.ai.stackReasoning(doc.findings, headers, htmlHead),
+      ).then((v) => maybePersist('stackReasoning', v)),
+      this.safe('ai:content', () =>
+        this.ai.contentAnalysis(homepageText, interior),
+      ).then((v) => maybePersist('contentAnalysis', v)),
+    ];
     if (doc.screenshotUrl) {
       tasks.push(
-        this.ai
-          .visualCritique(doc.screenshotUrl)
-          .then((s) => {
-            ai.visualCritique = s;
-          })
-          .catch((e) => this.logger.warn(`visual critique: ${(e as Error).message}`)),
+        this.safe('ai:visual', () =>
+          this.ai.visualCritique(doc.screenshotUrl!),
+        ).then((v) => maybePersist('visualCritique', v)),
       );
     }
 
-    await Promise.all(tasks);
+    await Promise.allSettled(tasks);
 
-    // Line items depends on executive summary, so it runs last.
-    try {
-      const items: SuggestedLineItem[] = await this.ai.suggestedLineItems(
-        doc.findings,
-        ai.executiveSummary ?? '',
-      );
-      ai.suggestedLineItems = items;
-    } catch (e) {
-      this.logger.warn(`line items: ${(e as Error).message}`);
-    }
+    // Line items depends on the executive summary, so it runs last.
+    const items = await this.safe('ai:items', () =>
+      this.ai.suggestedLineItems(doc.findings, ai.executiveSummary ?? ''),
+    );
+    await maybePersist('suggestedLineItems', items);
 
     ai.generatedAt = new Date().toISOString();
     doc.markModified('ai');

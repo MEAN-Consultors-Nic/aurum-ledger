@@ -21,6 +21,8 @@ export type ChatOptions = {
   /** When true, force the model to return parseable JSON. */
   json?: boolean;
   maxTokens?: number;
+  /** Per-call HTTP timeout. Defaults to 90s. */
+  timeoutMs?: number;
 };
 
 @Injectable()
@@ -65,6 +67,7 @@ export class OpenAiService {
         authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 90000),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');

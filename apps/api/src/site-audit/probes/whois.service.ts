@@ -1,52 +1,90 @@
 import { Injectable, Logger } from '@nestjs/common';
 
+type VcardEntry = [string, Record<string, unknown>, string, unknown];
+type RdapEntity = {
+  roles?: string[];
+  handle?: string;
+  vcardArray?: [string, VcardEntry[]];
+};
+type RdapResponse = {
+  events?: { eventAction: string; eventDate: string }[];
+  entities?: RdapEntity[];
+};
+
 /**
- * RDAP (RFC 7483) is the modern WHOIS replacement and is exposed publicly
- * via rdap.org as an aggregator across registries. No key required.
+ * RDAP lookup. `rdap.org` is a public bouncer that redirects to TLD-specific
+ * RDAP servers — it works for everything but is slow because of the hop.
+ * For the common TLDs we hit the authoritative server directly first and
+ * only fall back to the bouncer on miss.
  */
 @Injectable()
 export class WhoisService {
   private readonly logger = new Logger(WhoisService.name);
 
+  private readonly direct: Record<string, (d: string) => string> = {
+    com: (d) => `https://rdap.verisign.com/com/v1/domain/${d}`,
+    net: (d) => `https://rdap.verisign.com/net/v1/domain/${d}`,
+    name: (d) => `https://rdap.verisign.com/name/v1/domain/${d}`,
+    cc: (d) => `https://rdap.verisign.com/cc/v1/domain/${d}`,
+    tv: (d) => `https://rdap.verisign.com/tv/v1/domain/${d}`,
+    org: (d) => `https://rdap.publicinterestregistry.org/rdap/domain/${d}`,
+  };
+
   async lookup(hostname: string) {
     const domain = this.toApexDomain(hostname);
     if (!domain) return undefined;
 
+    const tld = domain.split('.').pop()?.toLowerCase() ?? '';
+    const direct = this.direct[tld]?.(domain);
+    const candidates = [
+      direct,
+      `https://rdap.org/domain/${domain}`,
+    ].filter((u): u is string => !!u);
+
+    for (const url of candidates) {
+      const data = await this.queryOnce(url);
+      if (data) return this.shape(data);
+    }
+    return undefined;
+  }
+
+  private async queryOnce(url: string): Promise<RdapResponse | null> {
     try {
-      const res = await fetch(`https://rdap.org/domain/${domain}`, {
+      const res = await fetch(url, {
         headers: { Accept: 'application/rdap+json' },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(8000),
+        redirect: 'follow',
       });
       if (!res.ok) {
-        this.logger.warn(`RDAP ${res.status} for ${domain}`);
-        return undefined;
+        this.logger.warn(`RDAP ${res.status} from ${url}`);
+        return null;
       }
-      const data = (await res.json()) as RdapResponse;
-
-      const events = data.events ?? [];
-      const registration = events.find((e) => e.eventAction === 'registration');
-      const expiration = events.find((e) => e.eventAction === 'expiration');
-
-      const registrarEntity = (data.entities ?? []).find((e) =>
-        e.roles?.includes('registrar'),
-      );
-      const registrar = this.entityName(registrarEntity);
-
-      const registered = registration?.eventDate;
-      const ageYears = registered
-        ? Math.floor((Date.now() - new Date(registered).getTime()) / 31557600000)
-        : undefined;
-
-      return {
-        registered,
-        ageYears,
-        registrar,
-        expiresAt: expiration?.eventDate,
-      };
+      return (await res.json()) as RdapResponse;
     } catch (err) {
-      this.logger.warn(`RDAP failed for ${domain}: ${(err as Error).message}`);
-      return undefined;
+      this.logger.warn(`RDAP ${url} failed: ${(err as Error).message}`);
+      return null;
     }
+  }
+
+  private shape(data: RdapResponse) {
+    const events = data.events ?? [];
+    const registration = events.find((e) => e.eventAction === 'registration');
+    const expiration = events.find((e) => e.eventAction === 'expiration');
+    const registrarEntity = (data.entities ?? []).find((e) =>
+      e.roles?.includes('registrar'),
+    );
+    const registrar = this.entityName(registrarEntity);
+    const registered = registration?.eventDate;
+    const ageYears = registered
+      ? Math.floor((Date.now() - new Date(registered).getTime()) / 31557600000)
+      : undefined;
+
+    return {
+      registered,
+      ageYears,
+      registrar,
+      expiresAt: expiration?.eventDate,
+    };
   }
 
   /**
@@ -57,7 +95,6 @@ export class WhoisService {
   private toApexDomain(hostname: string): string | null {
     const parts = hostname.replace(/^www\./, '').split('.');
     if (parts.length < 2) return null;
-    // Heuristic: if the last two parts are 2 chars each (ccSLD pattern), keep 3.
     const last = parts[parts.length - 1];
     const second = parts[parts.length - 2];
     if (last.length === 2 && second.length <= 3 && parts.length >= 3) {
@@ -74,16 +111,3 @@ export class WhoisService {
     return entity.handle;
   }
 }
-
-type VcardEntry = [string, Record<string, unknown>, string, unknown];
-
-type RdapEntity = {
-  roles?: string[];
-  handle?: string;
-  vcardArray?: [string, VcardEntry[]];
-};
-
-type RdapResponse = {
-  events?: { eventAction: string; eventDate: string }[];
-  entities?: RdapEntity[];
-};
