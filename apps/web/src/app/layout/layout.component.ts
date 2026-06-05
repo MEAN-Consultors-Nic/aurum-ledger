@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Users', path: '/users', icon: 'users' },
       { label: 'Notification center', path: '/notification-center', icon: 'notification-center' },
       { label: 'Reconcile', path: '/reconcile', icon: 'reconcile' },
+      { label: 'Custom fields', path: '/custom-fields', icon: 'custom-fields' },
       { label: 'Import', path: '/imports', icon: 'imports' },
       { label: 'Settings', path: '/settings', icon: 'settings' },
     ],
