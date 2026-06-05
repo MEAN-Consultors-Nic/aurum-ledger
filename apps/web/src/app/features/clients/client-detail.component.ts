@@ -258,10 +258,10 @@ type ClientWithCustom = ClientItem & { customValues?: Record<string, unknown> };
                 <td class="py-2 font-medium text-slate-900">{{ c.title || 'Untitled' }}</td>
                 <td class="py-2 text-slate-600">{{ c.billingPeriod }}</td>
                 <td class="py-2 text-right tabular-nums text-slate-900">{{ c.currency }} {{ formatAmount(c.amount) }}</td>
-                <td class="py-2 text-right tabular-nums text-emerald-700">{{ formatAmount(c.paidTotal ?? 0) }}</td>
+                <td class="py-2 text-right tabular-nums text-emerald-700">{{ formatAmount(c.paidTotal) }}</td>
                 <td class="py-2 text-right tabular-nums"
-                  [ngClass]="((c.amount ?? 0) - (c.paidTotal ?? 0)) > 0 ? 'text-rose-700' : 'text-slate-400'">
-                  {{ formatAmount((c.amount ?? 0) - (c.paidTotal ?? 0)) }}
+                  [ngClass]="(c.amount - c.paidTotal) > 0 ? 'text-rose-700' : 'text-slate-400'">
+                  {{ formatAmount(c.amount - c.paidTotal) }}
                 </td>
                 <td class="py-2">
                   <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
