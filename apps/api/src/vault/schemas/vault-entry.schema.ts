@@ -26,7 +26,7 @@ export class VaultEntry {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ required: true, enum: VAULT_CATEGORIES, default: 'other' })
+  @Prop({ type: String, required: true, enum: VAULT_CATEGORIES, default: 'other' })
   category: VaultCategory;
 
   @Prop({ type: [String], default: [] })
@@ -50,7 +50,7 @@ export class VaultEntry {
 
   // Optional parent — lets us tie a vault entry to a client/project/etc.
   // without forcing it (most personal entries will be orphans).
-  @Prop({ enum: ['project', 'client', 'contract', 'service', null], default: null })
+  @Prop({ type: String, enum: ['project', 'client', 'contract', 'service'], default: null })
   parentType?: 'project' | 'client' | 'contract' | 'service' | null;
 
   @Prop({ type: Types.ObjectId, default: null })

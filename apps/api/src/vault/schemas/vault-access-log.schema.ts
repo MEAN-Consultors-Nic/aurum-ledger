@@ -18,7 +18,7 @@ export class VaultAccessLog {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   userId?: Types.ObjectId;
 
-  @Prop({ required: true, enum: VAULT_ACCESS_ACTIONS })
+  @Prop({ type: String, required: true, enum: VAULT_ACCESS_ACTIONS })
   action: VaultAccessAction;
 
   @Prop()
