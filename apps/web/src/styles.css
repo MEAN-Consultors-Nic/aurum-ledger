@@ -5,9 +5,11 @@
 @tailwind utilities;
 
 :root {
-  --brand-ink: #0f172a;
+  --brand-ink: #0B1D32;
   --brand-muted: #64748b;
-  --brand-accent: #1e293b;
+  --brand-accent: #1E3A5F;
+  --brand-surface: #ffffff;
+  --brand-canvas: #F7F9FC;
 }
 
 body {

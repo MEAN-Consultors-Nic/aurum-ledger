@@ -178,7 +178,7 @@ export class ProjectsService {
         const slug = this.buildRepoSlug(input.clientName, name);
         const repo = await this.githubService.createRepository({
           name: slug,
-          description: `${name} — ${input.clientName ?? 'AurumLedger project'}`,
+          description: `${name} — ${input.clientName ?? 'Helm project'}`,
         });
         project.githubRepo = {
           owner: repo.owner,

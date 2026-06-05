@@ -74,53 +74,62 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
     CommandPaletteComponent,
   ],
   template: `
-    <div class="min-h-screen bg-slate-50 text-slate-900">
+    <div class="min-h-screen bg-[#F7F9FC] text-slate-900">
       <div class="flex min-h-screen">
         <div
           *ngIf="isMobileNavOpen"
-          class="fixed inset-0 z-40 bg-slate-900/60 lg:hidden"
+          class="fixed inset-0 z-40 bg-slate-900/40 lg:hidden"
           (click)="closeMobileNav()"
         ></div>
         <aside
-          class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full bg-slate-900 px-4 py-6 text-white transition-transform lg:static lg:min-h-screen lg:translate-x-0"
+          class="fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r border-slate-200 bg-white px-3 py-6 text-slate-700 transition-transform lg:static lg:min-h-screen lg:translate-x-0"
           [class.translate-x-0]="isMobileNavOpen"
         >
-          <div class="text-2xl font-semibold tracking-tight">AurumLedger</div>
-          <div class="mt-6 text-xs uppercase tracking-[0.2em] text-slate-400">
+          <a routerLink="/dashboard" class="flex items-center gap-2 px-2">
+            <span class="flex h-7 w-7 items-center justify-center rounded-md bg-navy-700 text-white">
+              <!-- Helm wheel mark -->
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.3 6.3l2.1 2.1M15.6 15.6l2.1 2.1M6.3 17.7l2.1-2.1M15.6 8.4l2.1-2.1"/>
+              </svg>
+            </span>
+            <span class="text-lg font-semibold tracking-tight text-slate-900">Helm</span>
+          </a>
+          <div class="mt-1 px-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
             MEAN Consultors
           </div>
 
-          <nav class="mt-6 space-y-1 text-sm">
+          <nav class="mt-6 space-y-0.5 text-sm">
             <!-- Standalone top links -->
             <a
               routerLink="/dashboard"
-              routerLinkActive="bg-slate-800 text-white"
-              class="flex items-center gap-3 rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+              routerLinkActive="bg-navy-50 !text-navy-700 !border-navy-600 font-medium"
+              class="flex items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
             >
-              <app-icon name="dashboard" [size]="16" class="shrink-0 text-slate-400" />
+              <app-icon name="dashboard" [size]="16" class="shrink-0" />
               <span>Dashboard</span>
             </a>
             <a
               routerLink="/notifications"
-              routerLinkActive="bg-slate-800 text-white"
-              class="flex items-center justify-between gap-3 rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+              routerLinkActive="bg-navy-50 !text-navy-700 !border-navy-600 font-medium"
+              class="flex items-center justify-between gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
             >
               <span class="flex items-center gap-3">
-                <app-icon name="alerts" [size]="16" class="shrink-0 text-slate-400" />
+                <app-icon name="alerts" [size]="16" class="shrink-0" />
                 <span>Alerts</span>
               </span>
               <span
                 *ngIf="alertCount > 0"
-                class="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300"
+                class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
               >{{ alertCount }}</span>
             </a>
 
             <!-- Grouped sections -->
-            <div *ngFor="let group of navGroups" class="pt-3">
+            <div *ngFor="let group of navGroups" class="pt-4">
               <button
                 type="button"
                 (click)="toggleGroup(group.key)"
-                class="flex w-full items-center justify-between rounded px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 transition hover:text-white"
+                class="flex w-full items-center justify-between rounded px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 transition hover:text-slate-600"
               >
                 <span>{{ group.label }}</span>
                 <svg
@@ -132,14 +141,14 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
                   <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </button>
-              <div *ngIf="isGroupOpen(group.key)" class="mt-1 space-y-1">
+              <div *ngIf="isGroupOpen(group.key)" class="mt-1 space-y-0.5">
                 <a
                   *ngFor="let item of group.items"
                   [routerLink]="item.path"
-                  routerLinkActive="bg-slate-800 text-white"
-                  class="flex items-center gap-3 rounded px-3 py-2 text-slate-200 transition hover:bg-slate-800/60"
+                  routerLinkActive="bg-navy-50 !text-navy-700 !border-navy-600 font-medium"
+                  class="flex items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                 >
-                  <app-icon [name]="item.icon" [size]="16" class="shrink-0 text-slate-400" />
+                  <app-icon [name]="item.icon" [size]="16" class="shrink-0" />
                   <span>{{ item.label }}</span>
                 </a>
               </div>
@@ -147,23 +156,23 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
           </nav>
         </aside>
         <main class="flex-1">
-          <header class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <header class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
             <div class="flex items-center gap-3">
               <button
                 type="button"
-                class="rounded border border-slate-200 px-3 py-2 text-xs uppercase tracking-wide text-slate-700 lg:hidden"
+                class="rounded-md border border-slate-200 px-3 py-1.5 text-xs uppercase tracking-wide text-slate-700 lg:hidden"
                 (click)="toggleMobileNav()"
               >
                 Menu
               </button>
-              <div class="text-lg font-semibold">Dashboard</div>
+              <div class="text-base font-semibold text-slate-900">Dashboard</div>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
               <button
                 type="button"
                 (click)="openSearch()"
                 title="Search (⌘K)"
-                class="flex items-center gap-2 rounded border border-slate-200 px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                class="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
               >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="11" cy="11" r="8"/>
@@ -176,20 +185,21 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
               </button>
               <a
                 routerLink="/notifications"
-                class="flex items-center gap-2 rounded border border-slate-200 px-3 py-1.5 text-xs uppercase tracking-wide text-slate-700"
+                class="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs uppercase tracking-wide text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
               >
                 Alerts
                 <span
+                  *ngIf="alertCount > 0"
                   class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700"
                 >
                   {{ alertCount }}
                 </span>
               </a>
-              <div class="text-sm text-slate-600">{{ userName }}</div>
+              <div class="hidden text-sm text-slate-600 sm:block">{{ userName }}</div>
               <button
                 type="button"
                 (click)="logout()"
-                class="rounded bg-slate-900 px-3 py-1.5 text-xs uppercase tracking-wide text-white"
+                class="rounded-md bg-navy-700 px-3 py-1.5 text-xs uppercase tracking-wide text-white transition hover:bg-navy-800"
               >
                 Logout
               </button>

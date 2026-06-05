@@ -10,7 +10,7 @@ export class AppController {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AurumLedger API</title>
+    <title>Helm API</title>
     <style>
       :root {
         color-scheme: light;
@@ -93,7 +93,7 @@ export class AppController {
   <body>
     <div class="card">
       <div class="title">
-        <h1>AurumLedger API</h1>
+        <h1>Helm API</h1>
         <div class="pill"><span class="dot"></span>Live</div>
       </div>
       <p>Minimal public health page. If you can read this, the API is up.</p>

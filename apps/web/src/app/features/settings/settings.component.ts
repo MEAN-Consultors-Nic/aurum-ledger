@@ -188,7 +188,7 @@ import { CategoryItem } from '../../core/models/category.model';
           <div class="grid gap-4 md:grid-cols-2">
             <div>
               <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Bucket</label>
-              <input formControlName="bucket" placeholder="aurum-attachments"
+              <input formControlName="bucket" placeholder="helm-attachments"
                 class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm" />
             </div>
             <div>

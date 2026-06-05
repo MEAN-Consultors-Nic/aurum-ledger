@@ -107,10 +107,10 @@ export class TemplateRendererService {
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;box-shadow:0 1px 2px rgba(15,23,42,0.05);max-width:600px;">
 <tr><td style="padding:32px;">
-<div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;margin-bottom:18px;">AurumLedger</div>
+<div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:#64748b;margin-bottom:18px;">Helm</div>
 ${html}
 <div style="margin-top:32px;padding-top:18px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;">
-Automated notification from AurumLedger.
+Automated notification from Helm.
 </div>
 </td></tr>
 </table>

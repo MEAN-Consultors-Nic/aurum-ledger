@@ -31,7 +31,7 @@ export class MailerService {
     const pass = config.get<string>('SMTP_PASS');
     this.fromAddress =
       config.get<string>('SMTP_FROM') ??
-      (user ? `AurumLedger <${user}>` : 'AurumLedger <no-reply@localhost>');
+      (user ? `Helm <${user}>` : 'Helm <no-reply@localhost>');
 
     if (!host || !user || !pass) {
       this.logger.warn(

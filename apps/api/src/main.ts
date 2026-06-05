@@ -31,7 +31,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new RequestLoggerInterceptor());
 
   const config = new DocumentBuilder()
-    .setTitle('AurumLedger API')
+    .setTitle('Helm API')
     .setDescription('Client and contract management API')
     .setVersion('1.0')
     .addBearerAuth()

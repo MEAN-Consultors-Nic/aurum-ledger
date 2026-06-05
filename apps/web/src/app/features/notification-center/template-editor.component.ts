@@ -263,11 +263,11 @@ type Viewport = 'desktop' | 'mobile' | 'source';
                 <div class="border-b border-slate-100 px-4 py-3 text-xs">
                   <div class="flex items-center justify-between text-slate-500">
                     <div class="flex items-center gap-2">
-                      <div class="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold uppercase text-white">
-                        AL
+                      <div class="flex h-7 w-7 items-center justify-center rounded-full bg-navy-700 text-[10px] font-bold uppercase text-white">
+                        H
                       </div>
                       <div>
-                        <div class="text-slate-900">AurumLedger</div>
+                        <div class="text-slate-900">Helm</div>
                         <div class="text-[10px] text-slate-400">to {{ testEmail || 'you@example.com' }}</div>
                       </div>
                     </div>

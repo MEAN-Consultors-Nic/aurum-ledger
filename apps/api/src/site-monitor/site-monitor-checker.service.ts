@@ -34,7 +34,7 @@ export class SiteMonitorChecker {
         signal: controller.signal,
         headers: {
           // Identify our pings so server logs are obvious.
-          'User-Agent': 'AurumLedger-Monitor/1.0',
+          'User-Agent': 'Helm-Monitor/1.0',
         },
       });
       const responseMs = Date.now() - started;
