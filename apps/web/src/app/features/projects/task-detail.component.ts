@@ -10,11 +10,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProjectsApiService } from '../../core/services/projects-api.service';
 import { ProjectTask } from '../../core/models/project.model';
+import { AttachmentsPanelComponent } from '../../shared/attachments-panel/attachments-panel.component';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AttachmentsPanelComponent],
   template: `
     <ng-container *ngIf="task">
       <!-- Backdrop -->
@@ -205,6 +206,11 @@ import { ProjectTask } from '../../core/models/project.model';
                 Add
               </button>
             </div>
+          </section>
+
+          <!-- Attachments -->
+          <section>
+            <app-attachments-panel parentType="task" [parentId]="task._id" />
           </section>
         </div>
 
