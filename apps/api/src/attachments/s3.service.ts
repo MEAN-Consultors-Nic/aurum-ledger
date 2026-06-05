@@ -36,6 +36,12 @@ export class S3Service {
         accessKeyId: cfg.accessKeyId,
         secretAccessKey: secret,
       },
+      // AWS SDK v3.729+ adds an x-amz-checksum-crc32 to presigned PUTs by
+      // default; the browser uploads the raw file without computing that
+      // checksum client-side, so S3 returns 400 on mismatch. Opt out of
+      // the automatic checksum so presigned uploads work from the browser.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     });
     return { s3, bucket: cfg.bucket };
   }
