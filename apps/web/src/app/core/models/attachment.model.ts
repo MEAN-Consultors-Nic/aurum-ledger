@@ -20,10 +20,3 @@ export type AttachmentItem = {
   createdAt?: string;
 };
 
-export type PresignResponse = {
-  attachmentId: string;
-  uploadUrl: string;
-  method: 'PUT';
-  headers: Record<string, string>;
-  s3Key: string;
-};

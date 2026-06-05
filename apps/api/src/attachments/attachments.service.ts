@@ -11,14 +11,6 @@ import {
 
 const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB per file
 
-export type PresignInput = {
-  filename: string;
-  mimeType: string;
-  sizeBytes: number;
-  parentType: AttachmentParentType;
-  parentId: string;
-};
-
 @Injectable()
 export class AttachmentsService {
   constructor(
@@ -39,56 +31,43 @@ export class AttachmentsService {
       .sort({ uploadedAt: -1 });
   }
 
-  async presign(input: PresignInput, userId?: Types.ObjectId) {
-    if (!input.filename?.trim()) {
-      throw new BadRequestException('filename required');
+  /**
+   * Server-side upload. Receives the multer file from the controller, pushes
+   * to S3 with credentials, then writes the Attachment row in one shot.
+   */
+  async upload(
+    parentType: AttachmentParentType,
+    parentId: string,
+    file: Express.Multer.File,
+    userId?: Types.ObjectId,
+  ) {
+    if (!file?.buffer || file.size === 0) {
+      throw new BadRequestException('Empty upload');
     }
-    if (input.sizeBytes <= 0) {
-      throw new BadRequestException('sizeBytes must be > 0');
-    }
-    if (input.sizeBytes > MAX_SIZE_BYTES) {
-      throw new BadRequestException(`File too large (max ${MAX_SIZE_BYTES / 1024 / 1024} MB)`);
+    if (file.size > MAX_SIZE_BYTES) {
+      throw new BadRequestException(
+        `File too large (max ${MAX_SIZE_BYTES / 1024 / 1024} MB)`,
+      );
     }
 
-    const bucket = await this.s3Service.bucketName();
-    const safeName = this.sanitizeFilename(input.filename);
-    const key = `${input.parentType}/${input.parentId}/${this.uniqueSegment()}-${safeName}`;
+    const safeName = this.sanitizeFilename(file.originalname);
+    const key = `${parentType}/${parentId}/${this.uniqueSegment()}-${safeName}`;
+    const contentType = file.mimetype || 'application/octet-stream';
 
-    // Reserve the row first — if upload never completes, status stays 'pending'
-    // and the record is cleaned up out-of-band later (or just sits harmless).
-    const attachment = await this.attachmentModel.create({
-      filename: input.filename,
-      mimeType: input.mimeType,
-      sizeBytes: input.sizeBytes,
+    const { bucket } = await this.s3Service.uploadObject(key, file.buffer, contentType);
+
+    return this.attachmentModel.create({
+      filename: file.originalname,
+      mimeType: contentType,
+      sizeBytes: file.size,
       s3Key: key,
       s3Bucket: bucket,
-      parentType: input.parentType,
-      parentId: new Types.ObjectId(input.parentId),
-      status: 'pending',
+      parentType,
+      parentId: new Types.ObjectId(parentId),
+      status: 'uploaded',
+      uploadedAt: new Date(),
       uploadedBy: userId,
     });
-
-    const uploadUrl = await this.s3Service.presignUpload(key, input.mimeType);
-    return {
-      attachmentId: attachment._id.toString(),
-      uploadUrl,
-      method: 'PUT' as const,
-      headers: { 'Content-Type': input.mimeType },
-      s3Key: key,
-    };
-  }
-
-  /** Called by the client after the S3 PUT succeeded. */
-  async complete(attachmentId: string) {
-    const attachment = await this.attachmentModel.findOneAndUpdate(
-      { _id: attachmentId, deletedAt: { $exists: false }, status: 'pending' },
-      { status: 'uploaded', uploadedAt: new Date() },
-      { new: true },
-    );
-    if (!attachment) {
-      throw new NotFoundException('Attachment not found or already completed');
-    }
-    return attachment;
   }
 
   async getDownloadUrl(attachmentId: string) {
@@ -110,7 +89,6 @@ export class AttachmentsService {
     if (!attachment) throw new NotFoundException('Attachment not found');
     attachment.deletedAt = new Date();
     await attachment.save();
-    // Best-effort: drop the object from S3 too.
     await this.s3Service.deleteObject(attachment.s3Key);
     return { deleted: true };
   }
