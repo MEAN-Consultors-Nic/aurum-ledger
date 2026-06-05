@@ -163,11 +163,27 @@ export class SiteAuditService {
   // ------------------------------------------------------------------
 
   /**
-   * Hard ceiling for the whole audit. If something genuinely hangs past
-   * this we force-fail; nothing we ship should ever take longer than this
-   * in steady state (probes + AI usually finish under 2 minutes).
+   * Hard ceiling for the whole audit. With per-step withTimeout caps a
+   * normal run completes in under 2 minutes; this is the belt that catches
+   * any pathology not handled by the per-step caps.
    */
-  private static readonly WALL_CLOCK_MS = 4 * 60 * 1000;
+  private static readonly WALL_CLOCK_MS = 3 * 60 * 1000;
+
+  /**
+   * Per-step caps. The point is to NOT trust each probe's internal
+   * library-level timeout — withTimeout() races every call against a
+   * setTimeout so we always move on within these budgets even if a fetch
+   * gets stuck at the socket layer.
+   */
+  private static readonly TIMEOUT_HOMEPAGE_MS = 12000;
+  private static readonly TIMEOUT_SCREENSHOT_MS = 18000;
+  private static readonly TIMEOUT_SITEMAP_MS = 20000;
+  private static readonly TIMEOUT_WHOIS_MS = 12000;
+  private static readonly TIMEOUT_SSL_MS = 12000;
+  private static readonly TIMEOUT_PAGESPEED_MS = 35000;
+  private static readonly TIMEOUT_INTERIOR_FETCH_MS = 8000;
+  private static readonly TIMEOUT_AI_TEXT_MS = 60000;
+  private static readonly TIMEOUT_AI_VISION_MS = 75000;
 
   private async run(id: string): Promise<void> {
     const doc = await this.model.findById(id);
@@ -206,16 +222,17 @@ export class SiteAuditService {
     const parsed = new URL(url);
     const origin = `${parsed.protocol}//${parsed.host}`;
 
-    // -------- Probes (all isolated; one failure cannot crash the rest) --------
+    // -------- Probes (all isolated; one failure / hang cannot crash the rest) --------
+    const T = SiteAuditService;
     const [homepage, screenshotUrl, sitemap, whois, ssl, mobilePS, desktopPS] =
       await Promise.all([
-        this.safe('homepage', () => this.fetcher.fetch(url)),
-        this.safe('screenshot', () => this.screenshot.capture(url)),
-        this.safe('sitemap', () => this.sitemap.scan(origin)),
-        this.safe('whois', () => this.whois.lookup(parsed.hostname)),
-        this.safe('ssl', () => this.runSsl(url)),
-        this.safe('pagespeed-mobile', () => this.pageSpeed.run(url, 'mobile')),
-        this.safe('pagespeed-desktop', () => this.pageSpeed.run(url, 'desktop')),
+        this.withTimeout('homepage', T.TIMEOUT_HOMEPAGE_MS, () => this.fetcher.fetch(url)),
+        this.withTimeout('screenshot', T.TIMEOUT_SCREENSHOT_MS, () => this.screenshot.capture(url)),
+        this.withTimeout('sitemap', T.TIMEOUT_SITEMAP_MS, () => this.sitemap.scan(origin)),
+        this.withTimeout('whois', T.TIMEOUT_WHOIS_MS, () => this.whois.lookup(parsed.hostname)),
+        this.withTimeout('ssl', T.TIMEOUT_SSL_MS, () => this.runSsl(url)),
+        this.withTimeout('pagespeed-mobile', T.TIMEOUT_PAGESPEED_MS, () => this.pageSpeed.run(url, 'mobile')),
+        this.withTimeout('pagespeed-desktop', T.TIMEOUT_PAGESPEED_MS, () => this.pageSpeed.run(url, 'desktop')),
       ]);
 
     doc.screenshotUrl = screenshotUrl ?? undefined;
@@ -288,13 +305,35 @@ export class SiteAuditService {
     }
   }
 
-  /** Run a probe, swallow any throw, log it. Returns undefined on failure. */
-  private async safe<T>(label: string, fn: () => Promise<T>): Promise<T | undefined> {
+  /**
+   * Race a step against a hard external timeout. Resolves with undefined
+   * if the step throws OR if it takes longer than `ms`. The inner promise
+   * may keep running (we can't truly cancel an arbitrary fetch from the
+   * outside) but we never block the audit waiting for it.
+   */
+  private async withTimeout<T>(
+    label: string,
+    ms: number,
+    fn: () => Promise<T>,
+  ): Promise<T | undefined> {
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => {
+        this.logger.warn(`Probe "${label}" hit external ${ms}ms cap, moving on`);
+        resolve(undefined);
+      }, ms);
+    });
     try {
-      return await fn();
-    } catch (err) {
-      this.logger.warn(`Probe "${label}" failed: ${(err as Error).message}`);
-      return undefined;
+      const result = await Promise.race([
+        fn().catch((err) => {
+          this.logger.warn(`Probe "${label}" threw: ${(err as Error).message}`);
+          return undefined as unknown as T;
+        }),
+        timeout,
+      ]);
+      return result;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
@@ -307,22 +346,27 @@ export class SiteAuditService {
   ) {
     const ai = doc.ai;
     ai.model = this.ai['openai'].textModel;
+    const T = SiteAuditService;
 
-    // Sample interior pages for content analysis. Skip the homepage itself.
+    // Sample interior pages for content analysis. Parallel + capped so a
+    // single slow page can't budget the entire AI section.
     const interiorUrls = sampleUrls
       .filter((u) => u !== doc.normalizedUrl && !u.endsWith('/'))
       .slice(0, 2);
-    const interior: { url: string; text: string }[] = [];
-    for (const u of interiorUrls) {
-      try {
-        const res = await this.fetcher.fetch(u, 10000);
-        if (res.ok && res.body) {
-          interior.push({ url: u, text: this.html.extractTextSample(res.body, 1500) });
-        }
-      } catch {
-        /* ignore */
-      }
-    }
+    const interiorResults = await Promise.all(
+      interiorUrls.map((u) =>
+        this.withTimeout('interior-page', T.TIMEOUT_INTERIOR_FETCH_MS, () =>
+          this.fetcher.fetch(u, T.TIMEOUT_INTERIOR_FETCH_MS),
+        ),
+      ),
+    );
+    const interior = interiorResults
+      .map((res, i) =>
+        res && res.ok && res.body
+          ? { url: interiorUrls[i], text: this.html.extractTextSample(res.body, 1500) }
+          : null,
+      )
+      .filter((x): x is { url: string; text: string } => x !== null);
 
     // Each task is fully isolated. Whichever finishes first writes its
     // own field + persists immediately so a later failure (or the
@@ -345,19 +389,19 @@ export class SiteAuditService {
     };
 
     const tasks: Promise<void>[] = [
-      this.safe('ai:exec', () =>
+      this.withTimeout('ai:exec', T.TIMEOUT_AI_TEXT_MS, () =>
         this.ai.executiveSummary(doc.findings, homepageText),
       ).then((v) => maybePersist('executiveSummary', v)),
-      this.safe('ai:stack', () =>
+      this.withTimeout('ai:stack', T.TIMEOUT_AI_TEXT_MS, () =>
         this.ai.stackReasoning(doc.findings, headers, htmlHead),
       ).then((v) => maybePersist('stackReasoning', v)),
-      this.safe('ai:content', () =>
+      this.withTimeout('ai:content', T.TIMEOUT_AI_TEXT_MS, () =>
         this.ai.contentAnalysis(homepageText, interior),
       ).then((v) => maybePersist('contentAnalysis', v)),
     ];
     if (doc.screenshotUrl) {
       tasks.push(
-        this.safe('ai:visual', () =>
+        this.withTimeout('ai:visual', T.TIMEOUT_AI_VISION_MS, () =>
           this.ai.visualCritique(doc.screenshotUrl!),
         ).then((v) => maybePersist('visualCritique', v)),
       );
@@ -366,7 +410,7 @@ export class SiteAuditService {
     await Promise.allSettled(tasks);
 
     // Line items depends on the executive summary, so it runs last.
-    const items = await this.safe('ai:items', () =>
+    const items = await this.withTimeout('ai:items', T.TIMEOUT_AI_TEXT_MS, () =>
       this.ai.suggestedLineItems(doc.findings, ai.executiveSummary ?? ''),
     );
     await maybePersist('suggestedLineItems', items);
