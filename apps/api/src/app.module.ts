@@ -34,6 +34,7 @@ import { ServicesModule } from './services/services.module';
 import { SiteMonitorModule } from './site-monitor/site-monitor.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
+import { VaultModule } from './vault/vault.module';
 
 @Module({
   imports: [
@@ -91,6 +92,7 @@ import { UsersModule } from './users/users.module';
     NotificationsModule,
     ProjectsModule,
     PublicModule,
+    VaultModule,
     MailerModule,
     NotificationsEngineModule,
     ReconcileModule,

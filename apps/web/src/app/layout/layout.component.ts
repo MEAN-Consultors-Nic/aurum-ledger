@@ -123,6 +123,14 @@ const NAV_STATE_KEY = 'aurum_nav_groups_collapsed';
                 class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
               >{{ alertCount }}</span>
             </a>
+            <a
+              routerLink="/vault"
+              routerLinkActive="bg-navy-50 !text-navy-700 !border-navy-600 font-medium"
+              class="flex items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+            >
+              <app-icon name="vault" [size]="16" class="shrink-0" />
+              <span>Vault</span>
+            </a>
 
             <!-- Grouped sections -->
             <div *ngFor="let group of navGroups" class="pt-4">

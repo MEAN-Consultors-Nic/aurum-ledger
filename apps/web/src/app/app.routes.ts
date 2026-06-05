@@ -24,6 +24,7 @@ import { FinanceComponent } from './features/finance/finance.component';
 import { NetWorthComponent } from './features/net-worth/net-worth.component';
 import { SiteMonitorComponent } from './features/site-monitor/site-monitor.component';
 import { CustomFieldsAdminComponent } from './features/custom-fields/custom-fields-admin.component';
+import { VaultComponent } from './features/vault/vault.component';
 import { ReconcileComponent } from './features/reconcile/reconcile.component';
 import { SettingsComponent } from './features/settings/settings.component';
 import { PlannedIncomesComponent } from './features/planned-incomes/planned-incomes.component';
@@ -80,6 +81,7 @@ export const routes: Routes = [
       { path: 'reconcile', component: ReconcileComponent, canActivate: [adminGuard] },
       { path: 'settings', component: SettingsComponent },
       { path: 'custom-fields', component: CustomFieldsAdminComponent, canActivate: [adminGuard] },
+      { path: 'vault', component: VaultComponent },
     ],
   },
 ];
