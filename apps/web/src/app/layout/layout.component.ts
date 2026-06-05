@@ -41,7 +41,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     key: 'insights',
     label: 'Insights',
-    items: [{ label: 'Reports', path: '/reports', icon: 'reports' }],
+    items: [
+      { label: 'Reports', path: '/reports', icon: 'reports' },
+      { label: 'Site monitor', path: '/site-monitor', icon: 'site-monitor' },
+    ],
   },
   {
     key: 'admin',

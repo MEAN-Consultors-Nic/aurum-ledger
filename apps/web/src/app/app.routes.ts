@@ -21,6 +21,7 @@ import { TransactionsComponent } from './features/transactions/transactions.comp
 import { BudgetsComponent } from './features/budgets/budgets.component';
 import { FinanceComponent } from './features/finance/finance.component';
 import { NetWorthComponent } from './features/net-worth/net-worth.component';
+import { SiteMonitorComponent } from './features/site-monitor/site-monitor.component';
 import { ReconcileComponent } from './features/reconcile/reconcile.component';
 import { SettingsComponent } from './features/settings/settings.component';
 import { PlannedIncomesComponent } from './features/planned-incomes/planned-incomes.component';
@@ -64,6 +65,7 @@ export const routes: Routes = [
       { path: 'budgets', component: BudgetsComponent },
       { path: 'finance', component: FinanceComponent },
       { path: 'net-worth', component: NetWorthComponent },
+      { path: 'site-monitor', component: SiteMonitorComponent },
       { path: 'planned-income', component: PlannedIncomesComponent },
       { path: 'recurring-expenses', component: RecurringExpensesComponent },
       { path: 'loans', component: LoansComponent },

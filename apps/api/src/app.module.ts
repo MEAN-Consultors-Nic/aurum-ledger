@@ -28,6 +28,7 @@ import { LoansModule } from './loans/loans.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { SettingsModule } from './settings/settings.module';
 import { ServicesModule } from './services/services.module';
+import { SiteMonitorModule } from './site-monitor/site-monitor.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
 
@@ -79,6 +80,7 @@ import { UsersModule } from './users/users.module';
     ReportsModule,
     LoansModule,
     SubscriptionsModule,
+    SiteMonitorModule,
     ImportsModule,
     NotificationsModule,
     ProjectsModule,
