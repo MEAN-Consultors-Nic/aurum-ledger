@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { AssetsModule } from './assets/assets.module';
+import { AttachmentsModule } from './attachments/attachments.module';
 import { BudgetsModule } from './budgets/budgets.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ClientsModule } from './clients/clients.module';
@@ -64,6 +65,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AccountsModule,
     AssetsModule,
+    AttachmentsModule,
     NetWorthModule,
     CategoriesModule,
     BudgetsModule,

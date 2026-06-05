@@ -17,6 +17,22 @@ export type UpdateGithubSettingsPayload = {
   defaultPrivate?: boolean;
 };
 
+export type S3Settings = {
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+  endpoint: string;
+  hasSecretKey: boolean;
+};
+
+export type UpdateS3SettingsPayload = {
+  bucket?: string;
+  region?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string | null;
+  endpoint?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class SettingsApiService {
   constructor(private readonly http: HttpClient) {}
@@ -36,5 +52,14 @@ export class SettingsApiService {
 
   updateGithub(payload: UpdateGithubSettingsPayload) {
     return this.http.put<GithubSettings>(`${environment.apiUrl}/settings/github`, payload);
+  }
+
+  // ----- S3 -----
+  getS3() {
+    return this.http.get<S3Settings>(`${environment.apiUrl}/settings/s3`);
+  }
+
+  updateS3(payload: UpdateS3SettingsPayload) {
+    return this.http.put<S3Settings>(`${environment.apiUrl}/settings/s3`, payload);
   }
 }

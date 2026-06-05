@@ -12,11 +12,27 @@ export type GithubSettings = {
   hasToken: boolean;
 };
 
+export type S3Settings = {
+  bucket: string;
+  region: string;
+  accessKeyId: string;
+  endpoint: string;
+  hasSecretKey: boolean;
+};
+
 const GITHUB_KEYS = {
   org: 'githubOrg',
   token: 'githubAccessToken', // encrypted
   autoCreate: 'githubAutoCreateRepos',
   defaultPrivate: 'githubDefaultPrivate',
+};
+
+const S3_KEYS = {
+  bucket: 's3Bucket',
+  region: 's3Region',
+  accessKeyId: 's3AccessKeyId',
+  secretAccessKey: 's3SecretAccessKey', // encrypted
+  endpoint: 's3Endpoint', // optional — for R2/B2/MinIO etc.
 };
 
 @Injectable()
@@ -119,6 +135,71 @@ export class SettingsService {
       const decoded = this.cipher.decrypt(blob);
       const token = decoded.token;
       return typeof token === 'string' ? token : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // ----- S3 settings -----
+
+  async getS3Settings(): Promise<S3Settings> {
+    const [bucket, region, accessKeyId, secret, endpoint] = await Promise.all([
+      this.getValue(S3_KEYS.bucket),
+      this.getValue(S3_KEYS.region),
+      this.getValue(S3_KEYS.accessKeyId),
+      this.getValue(S3_KEYS.secretAccessKey),
+      this.getValue(S3_KEYS.endpoint),
+    ]);
+    return {
+      bucket: bucket ?? '',
+      region: region ?? '',
+      accessKeyId: accessKeyId ?? '',
+      endpoint: endpoint ?? '',
+      hasSecretKey: !!secret,
+    };
+  }
+
+  async updateS3Settings(
+    payload: {
+      bucket?: string;
+      region?: string;
+      accessKeyId?: string;
+      secretAccessKey?: string | null;
+      endpoint?: string;
+    },
+    userId?: string,
+  ) {
+    if (payload.bucket !== undefined) {
+      await this.setValue(S3_KEYS.bucket, payload.bucket.trim(), userId);
+    }
+    if (payload.region !== undefined) {
+      await this.setValue(S3_KEYS.region, payload.region.trim(), userId);
+    }
+    if (payload.accessKeyId !== undefined) {
+      await this.setValue(S3_KEYS.accessKeyId, payload.accessKeyId.trim(), userId);
+    }
+    if (payload.endpoint !== undefined) {
+      await this.setValue(S3_KEYS.endpoint, payload.endpoint.trim(), userId);
+    }
+    if (payload.secretAccessKey !== undefined) {
+      if (payload.secretAccessKey === null || payload.secretAccessKey === '') {
+        await this.settingModel.deleteOne({ key: S3_KEYS.secretAccessKey });
+      } else {
+        const blob = this.cipher.encrypt({ secretAccessKey: payload.secretAccessKey });
+        await this.setValue(S3_KEYS.secretAccessKey, blob, userId);
+      }
+    }
+    return this.getS3Settings();
+  }
+
+  /** Internal — returns the decrypted secret key or null. */
+  async getS3SecretAccessKey(): Promise<string | null> {
+    const blob = await this.getValue(S3_KEYS.secretAccessKey);
+    if (!blob) return null;
+    try {
+      const decoded = this.cipher.decrypt(blob);
+      const key = decoded.secretAccessKey;
+      return typeof key === 'string' ? key : null;
     } catch {
       return null;
     }

@@ -16,6 +16,7 @@ import {
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
 import { GithubPanelComponent, GithubRepoLink } from '../../shared/github-panel/github-panel.component';
+import { AttachmentsPanelComponent } from '../../shared/attachments-panel/attachments-panel.component';
 import { TasksBoardComponent } from './tasks-board.component';
 
 type Tab = 'overview' | 'tasks' | 'notes' | 'credentials' | 'deliverables';
@@ -149,6 +150,7 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
     ActionMenuComponent,
     SharePanelComponent,
     GithubPanelComponent,
+    AttachmentsPanelComponent,
     TasksBoardComponent,
   ],
   template: `
@@ -447,6 +449,9 @@ const CREDENTIAL_TYPES: CredentialTypeSpec[] = [
         (link)="linkGithub($event)"
         (unlink)="unlinkGithub()"
       />
+
+      <!-- Attachments -->
+      <app-attachments-panel parentType="project" [parentId]="projectId" />
     </div>
 
     <!-- Credential modal -->

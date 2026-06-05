@@ -11,6 +11,7 @@ import { ServicesApiService } from '../../core/services/services-api.service';
 import { ClientItem } from '../../core/models/client.model';
 import { EstimateItem } from '../../core/models/estimate.model';
 import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
+import { AttachmentsPanelComponent } from '../../shared/attachments-panel/attachments-panel.component';
 import { ServiceItem } from '../../core/models/service.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 import {
@@ -31,6 +32,7 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
     ActionMenuComponent,
     SendNotificationDialogComponent,
     SharePanelComponent,
+    AttachmentsPanelComponent,
   ],
   template: `
     <div *ngIf="isLoading" class="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -260,6 +262,13 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
               [busy]="isSharing"
               (generate)="generateShare()"
               (revoke)="revokeShare()"
+            />
+
+            <!-- Attachments -->
+            <app-attachments-panel
+              *ngIf="!isNew && estimateId"
+              parentType="estimate"
+              [parentId]="estimateId"
             />
 
             <!-- Bottom spacer -->

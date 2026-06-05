@@ -5,8 +5,10 @@ import { forkJoin } from 'rxjs';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
 import {
   GithubSettings,
+  S3Settings,
   SettingsApiService,
   UpdateGithubSettingsPayload,
+  UpdateS3SettingsPayload,
 } from '../../core/services/settings-api.service';
 import { CategoryItem } from '../../core/models/category.model';
 
@@ -159,6 +161,95 @@ import { CategoryItem } from '../../core/models/category.model';
           </div>
         </form>
       </div>
+
+      <!-- S3 attachments -->
+      <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold text-slate-900">S3 attachments</div>
+            <div class="text-xs text-slate-500">
+              File storage for attachments on estimates, contracts and projects.
+              <span class="font-semibold text-slate-700">All objects stay private</span> — every upload and download uses short-lived signed URLs.
+              Works with AWS S3, Cloudflare R2, Backblaze B2 or any S3-compatible endpoint.
+            </div>
+          </div>
+          <span
+            *ngIf="s3Settings"
+            class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+            [ngClass]="s3Settings.hasSecretKey
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-slate-100 text-slate-500'"
+          >
+            {{ s3Settings.hasSecretKey ? 'Connected' : 'Not configured' }}
+          </span>
+        </div>
+
+        <form class="mt-5 space-y-4" [formGroup]="s3Form" (ngSubmit)="saveS3()">
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Bucket</label>
+              <input formControlName="bucket" placeholder="aurum-attachments"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Region</label>
+              <input formControlName="region" placeholder="us-east-1"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Access key ID</label>
+              <input formControlName="accessKeyId" autocomplete="off"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Secret access key</label>
+              <input
+                formControlName="secretAccessKey"
+                type="password"
+                autocomplete="new-password"
+                [placeholder]="s3Settings?.hasSecretKey ? '••••••••• (leave blank to keep)' : 'AWS secret access key'"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
+              />
+              <div class="mt-1 text-[11px] text-slate-500">
+                Stored encrypted (AES-256-GCM). Never returned to the client.
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Endpoint <span class="text-slate-400">(only for R2/B2/MinIO)</span>
+            </label>
+            <input
+              formControlName="endpoint"
+              placeholder="https://<accountid>.r2.cloudflarestorage.com (leave blank for AWS)"
+              class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm"
+            />
+          </div>
+
+          <div *ngIf="s3Message" class="text-sm text-emerald-600">{{ s3Message }}</div>
+          <div *ngIf="s3Error" class="text-sm text-red-600">{{ s3Error }}</div>
+
+          <div class="flex items-center justify-between">
+            <button
+              *ngIf="s3Settings?.hasSecretKey"
+              type="button"
+              (click)="clearS3Secret()"
+              [disabled]="isSavingS3"
+              class="text-xs font-semibold uppercase tracking-wide text-rose-600 hover:text-rose-800 disabled:opacity-40"
+            >
+              Disconnect S3 secret
+            </button>
+            <span *ngIf="!s3Settings?.hasSecretKey"></span>
+            <button
+              type="submit"
+              class="rounded bg-slate-900 px-4 py-2 text-xs uppercase tracking-wide text-white disabled:opacity-50"
+              [disabled]="isSavingS3"
+            >
+              {{ isSavingS3 ? 'Saving…' : 'Save S3 settings' }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   `,
 })
@@ -176,6 +267,13 @@ export class SettingsComponent implements OnInit {
   githubMessage = '';
   githubError = '';
 
+  // S3
+  s3Form: FormGroup;
+  s3Settings: S3Settings | null = null;
+  isSavingS3 = false;
+  s3Message = '';
+  s3Error = '';
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly settingsApi: SettingsApiService,
@@ -191,12 +289,86 @@ export class SettingsComponent implements OnInit {
       autoCreate: [false],
       defaultPrivate: [true],
     });
+    this.s3Form = this.fb.group({
+      bucket: [''],
+      region: [''],
+      accessKeyId: [''],
+      secretAccessKey: [''],
+      endpoint: [''],
+    });
   }
 
   ngOnInit() {
     this.loadCategories();
     this.loadSettings();
     this.loadGithub();
+    this.loadS3();
+  }
+
+  loadS3() {
+    this.settingsApi.getS3().subscribe({
+      next: (data) => {
+        this.s3Settings = data;
+        this.s3Form.patchValue({
+          bucket: data.bucket,
+          region: data.region,
+          accessKeyId: data.accessKeyId,
+          secretAccessKey: '',
+          endpoint: data.endpoint,
+        });
+      },
+    });
+  }
+
+  saveS3() {
+    this.isSavingS3 = true;
+    this.s3Message = '';
+    this.s3Error = '';
+    const v = this.s3Form.value as {
+      bucket: string;
+      region: string;
+      accessKeyId: string;
+      secretAccessKey: string;
+      endpoint: string;
+    };
+    const payload: UpdateS3SettingsPayload = {
+      bucket: v.bucket ?? '',
+      region: v.region ?? '',
+      accessKeyId: v.accessKeyId ?? '',
+      endpoint: v.endpoint ?? '',
+    };
+    if (v.secretAccessKey && v.secretAccessKey.trim().length > 0) {
+      payload.secretAccessKey = v.secretAccessKey.trim();
+    }
+    this.settingsApi.updateS3(payload).subscribe({
+      next: (data) => {
+        this.s3Settings = data;
+        this.s3Form.patchValue({ secretAccessKey: '' });
+        this.isSavingS3 = false;
+        this.s3Message = 'S3 settings saved';
+        setTimeout(() => (this.s3Message = ''), 2500);
+      },
+      error: (err) => {
+        this.isSavingS3 = false;
+        this.s3Error = err?.error?.message ?? 'Unable to save S3 settings';
+      },
+    });
+  }
+
+  clearS3Secret() {
+    this.isSavingS3 = true;
+    this.settingsApi.updateS3({ secretAccessKey: null }).subscribe({
+      next: (data) => {
+        this.s3Settings = data;
+        this.isSavingS3 = false;
+        this.s3Message = 'S3 secret disconnected';
+        setTimeout(() => (this.s3Message = ''), 2500);
+      },
+      error: () => {
+        this.isSavingS3 = false;
+        this.s3Error = 'Unable to disconnect S3 secret';
+      },
+    });
   }
 
   loadGithub() {

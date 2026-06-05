@@ -4,6 +4,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequestUser } from '../common/types/request-user.type';
 import { UpdateGithubSettingsDto } from './dto/github-settings.dto';
+import { UpdateS3SettingsDto } from './dto/s3-settings.dto';
 import { UpdateSettingDto } from './dto/update-setting.dto';
 import { SettingsService } from './settings.service';
 
@@ -32,6 +33,17 @@ export class SettingsController {
     @CurrentUser() user: RequestUser,
   ) {
     return this.settingsService.updateGithubSettings(dto, user?._id?.toString());
+  }
+
+  // ----- S3 -----
+  @Get('s3')
+  getS3() {
+    return this.settingsService.getS3Settings();
+  }
+
+  @Put('s3')
+  updateS3(@Body() dto: UpdateS3SettingsDto, @CurrentUser() user: RequestUser) {
+    return this.settingsService.updateS3Settings(dto, user?._id?.toString());
   }
 
   @Get(':key')
