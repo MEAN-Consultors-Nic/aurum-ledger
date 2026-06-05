@@ -27,6 +27,19 @@ export class ClientsApiService {
     });
   }
 
+  findById(id: string) {
+    return this.http.get<ClientItem>(`${environment.apiUrl}/clients/${id}`);
+  }
+
+  summary(id: string) {
+    return this.http.get<{
+      totalContratos: number;
+      totalAdeudado: number;
+      vencidos: number;
+      proximosAVencer: number;
+    }>(`${environment.apiUrl}/clients/${id}/summary`);
+  }
+
   create(payload: {
     name: string;
     contactName?: string;

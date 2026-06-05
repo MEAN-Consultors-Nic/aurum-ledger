@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ClientsApiService } from '../../core/services/clients-api.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { ClientItem } from '../../core/models/client.model';
@@ -64,9 +65,10 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of clients" class="border-t border-slate-100">
+            <tr *ngFor="let item of clients" class="cursor-pointer border-t border-slate-100 hover:bg-slate-50"
+              (click)="goToDetail(item, $event)">
               <td class="py-3">
-                <div class="font-medium text-slate-900">{{ item.name }}</div>
+                <div class="font-medium text-slate-900 hover:underline">{{ item.name }}</div>
                 <div class="text-xs text-slate-500">{{ item.email || '-' }}</div>
               </td>
               <td class="py-3">{{ item.contactName || '-' }}</td>
@@ -79,7 +81,7 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                   {{ item.isActive ? 'Active' : 'Inactive' }}
                 </span>
               </td>
-              <td class="py-3 text-right">
+              <td class="py-3 text-right" (click)="$event.stopPropagation()">
                 <app-action-menu [items]="rowActions(item)" />
               </td>
             </tr>
@@ -206,6 +208,7 @@ export class ClientsComponent implements OnInit {
     private readonly fb: FormBuilder,
     private readonly clientsApi: ClientsApiService,
     private readonly confirm: ConfirmService,
+    private readonly router: Router,
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
@@ -260,6 +263,12 @@ export class ClientsComponent implements OnInit {
       isActive: true,
     });
     this.isModalOpen = true;
+  }
+
+  goToDetail(item: ClientItem, event: MouseEvent) {
+    // Ignore clicks that originated inside the action-menu cell.
+    if ((event.target as HTMLElement)?.closest('[role="menu"], button')) return;
+    this.router.navigate(['/clients', item._id]);
   }
 
   rowActions(item: ClientItem): ActionMenuItem[] {

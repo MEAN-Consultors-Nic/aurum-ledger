@@ -5,6 +5,7 @@ import { LayoutComponent } from './layout/layout.component';
 import { LoginComponent } from './features/auth/login.component';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { ClientsComponent } from './features/clients/clients.component';
+import { ClientDetailComponent } from './features/clients/client-detail.component';
 import { ServicesComponent } from './features/services/services.component';
 import { EstimatesComponent } from './features/estimates/estimates.component';
 import { EstimateEditorComponent } from './features/estimates/estimate-editor.component';
@@ -49,6 +50,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'dashboard', component: DashboardComponent },
       { path: 'clients', component: ClientsComponent },
+      { path: 'clients/:id', component: ClientDetailComponent },
       { path: 'services', component: ServicesComponent },
       { path: 'estimates', component: EstimatesComponent },
       { path: 'estimates/new', component: EstimateEditorComponent },
