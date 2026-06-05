@@ -25,6 +25,8 @@ import { NetWorthComponent } from './features/net-worth/net-worth.component';
 import { SiteMonitorComponent } from './features/site-monitor/site-monitor.component';
 import { CustomFieldsAdminComponent } from './features/custom-fields/custom-fields-admin.component';
 import { VaultComponent } from './features/vault/vault.component';
+import { SiteAuditListComponent } from './features/site-audit/site-audit-list.component';
+import { SiteAuditDetailComponent } from './features/site-audit/site-audit-detail.component';
 import { ReconcileComponent } from './features/reconcile/reconcile.component';
 import { SettingsComponent } from './features/settings/settings.component';
 import { PlannedIncomesComponent } from './features/planned-incomes/planned-incomes.component';
@@ -82,6 +84,8 @@ export const routes: Routes = [
       { path: 'settings', component: SettingsComponent },
       { path: 'custom-fields', component: CustomFieldsAdminComponent, canActivate: [adminGuard] },
       { path: 'vault', component: VaultComponent },
+      { path: 'audits', component: SiteAuditListComponent },
+      { path: 'audits/:id', component: SiteAuditDetailComponent },
     ],
   },
 ];

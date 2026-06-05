@@ -31,6 +31,7 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { SearchModule } from './search/search.module';
 import { SettingsModule } from './settings/settings.module';
 import { ServicesModule } from './services/services.module';
+import { SiteAuditModule } from './site-audit/site-audit.module';
 import { SiteMonitorModule } from './site-monitor/site-monitor.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
@@ -87,6 +88,7 @@ import { VaultModule } from './vault/vault.module';
     LoansModule,
     SubscriptionsModule,
     SiteMonitorModule,
+    SiteAuditModule,
     SearchModule,
     ImportsModule,
     NotificationsModule,

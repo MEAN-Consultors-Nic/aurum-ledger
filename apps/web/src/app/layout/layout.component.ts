@@ -17,6 +17,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Clients', path: '/clients', icon: 'clients' },
       { label: 'Services', path: '/services', icon: 'services' },
+      { label: 'Site audits', path: '/audits', icon: 'site-audit' },
       { label: 'Estimates', path: '/estimates', icon: 'estimates' },
       { label: 'Contracts', path: '/contracts', icon: 'contracts' },
       { label: 'Projects', path: '/projects', icon: 'projects' },

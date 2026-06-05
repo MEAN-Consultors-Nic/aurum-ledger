@@ -14,6 +14,6 @@ import { SiteMonitorService } from './site-monitor.service';
   ],
   controllers: [SiteMonitorController],
   providers: [SiteMonitorService, SiteMonitorChecker, SiteMonitorSchedulerService],
-  exports: [SiteMonitorService],
+  exports: [SiteMonitorService, SiteMonitorChecker],
 })
 export class SiteMonitorModule {}
