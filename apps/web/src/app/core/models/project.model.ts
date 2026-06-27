@@ -34,7 +34,7 @@ export type ProjectItem = {
   _id: string;
   name: string;
   description?: string;
-  contractId: string | ProjectContractRef;
+  contractId?: string | ProjectContractRef;
   clientId: string | ProjectParty;
   serviceId?: string | ProjectParty;
   status: ProjectStatus;

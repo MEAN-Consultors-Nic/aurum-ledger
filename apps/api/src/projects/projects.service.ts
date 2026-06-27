@@ -106,19 +106,36 @@ export class ProjectsService {
   }
 
   async create(dto: CreateProjectDto, userId?: Types.ObjectId) {
+    const template = dto.templateKey ? findTemplateByKey(dto.templateKey) : undefined;
+
     const project = await this.projectModel.create({
       ...dto,
-      contractId: new Types.ObjectId(dto.contractId),
+      contractId: dto.contractId ? new Types.ObjectId(dto.contractId) : undefined,
       clientId: new Types.ObjectId(dto.clientId),
       serviceId: dto.serviceId ? new Types.ObjectId(dto.serviceId) : undefined,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+      templateKey: template?.key ?? dto.templateKey,
+      deliverables: template
+        ? template.deliverables.map((label) => ({ label, done: false }))
+        : [],
       createdBy: userId,
       updatedBy: userId,
     });
 
-    if (dto.templateKey) {
-      await this.applyTemplate(project._id.toString(), dto.templateKey, userId);
+    if (template && template.tasks.length > 0) {
+      await this.taskModel.insertMany(
+        template.tasks.map((task, idx) => ({
+          projectId: project._id,
+          title: task.title,
+          description: task.description,
+          priority: task.priority ?? 'medium',
+          status: 'todo',
+          order: idx,
+          createdBy: userId,
+          updatedBy: userId,
+        })),
+      );
     }
 
     return project;

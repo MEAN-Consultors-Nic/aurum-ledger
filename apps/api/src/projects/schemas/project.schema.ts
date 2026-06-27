@@ -51,8 +51,8 @@ export class Project {
   @Prop()
   description?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Contract', required: true, unique: true, sparse: true })
-  contractId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Contract', unique: true, sparse: true })
+  contractId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Client', required: true })
   clientId: Types.ObjectId;

@@ -55,7 +55,7 @@ export class ProjectsApiService {
     return this.http.get<ProjectItem>(`${this.base}/${id}`);
   }
 
-  create(payload: Partial<ProjectItem> & { contractId: string; clientId: string; name: string }) {
+  create(payload: Partial<ProjectItem> & { clientId: string; name: string }) {
     return this.http.post<ProjectItem>(this.base, payload);
   }
 

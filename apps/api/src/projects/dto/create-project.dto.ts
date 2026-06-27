@@ -19,8 +19,9 @@ export class CreateProjectDto {
   @IsString()
   description?: string;
 
+  @IsOptional()
   @IsMongoId()
-  contractId: string;
+  contractId?: string;
 
   @IsMongoId()
   clientId: string;
