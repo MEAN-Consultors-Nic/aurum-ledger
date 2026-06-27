@@ -735,8 +735,15 @@ export class PlannedIncomesComponent implements OnInit {
     }
     this.plannedIncomesApi.remove(item._id).subscribe({
       next: () => {
+        this.plannedIncomes = this.plannedIncomes.filter((p) => p._id !== item._id);
         this.loadPlanned();
         this.loadMonth();
+      },
+      error: (err) => {
+        const message = Array.isArray(err?.error?.message)
+          ? err.error.message.join(', ')
+          : err?.error?.message;
+        this.error = message || 'Unable to delete planned income';
       },
     });
   }

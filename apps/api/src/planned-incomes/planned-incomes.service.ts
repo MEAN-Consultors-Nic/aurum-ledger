@@ -91,15 +91,27 @@ export class PlannedIncomesService {
     return planned;
   }
 
-  async softDelete(id: string, userId?: Types.ObjectId) {
+  async softDelete(id: string, _userId?: Types.ObjectId) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException('Planned income not found');
+    }
     const planned = await this.plannedIncomeModel.findById(id);
     if (!planned) {
       throw new NotFoundException('Planned income not found');
     }
-    planned.isActive = false;
-    planned.updatedBy = userId;
-    await planned.save();
-    return planned;
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    await this.occurrenceModel.deleteMany({
+      plannedIncomeId: planned._id,
+      status: 'planned',
+      date: { $gte: startOfToday },
+    });
+
+    await planned.deleteOne();
+
+    return { _id: planned._id, deleted: true };
   }
 
   async listOccurrences(month?: string) {
