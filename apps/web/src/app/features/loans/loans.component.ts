@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } 
 import { AccountsApiService } from '../../core/services/accounts-api.service';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
 import { ConfirmService } from '../../core/services/confirm.service';
+import { SettingsApiService } from '../../core/services/settings-api.service';
 import { LoansApiService } from '../../core/services/loans-api.service';
 import {
   LoanItem,
@@ -329,87 +330,104 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
       </section>
     </div>
 
+    <!-- NEW / EDIT LOAN — WIZARD -->
     <div
       *ngIf="isModalOpen"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4"
+      class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 px-4 py-8"
     >
-      <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <div class="flex items-center justify-between">
-          <div class="text-lg font-semibold">{{ editing ? 'Edit loan' : 'New loan' }}</div>
-          <button class="text-slate-400" (click)="closeModal()">X</button>
+      <div class="w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+        <!-- header -->
+        <div class="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+          <div>
+            <div class="text-lg font-semibold text-slate-900">
+              {{ editing ? 'Edit debt' : 'New debt' }}
+            </div>
+            <div class="text-sm text-slate-500">{{ stepSubtitle }}</div>
+          </div>
+          <button class="text-slate-400 transition hover:text-slate-600" (click)="closeModal()">✕</button>
         </div>
 
-        <form class="mt-4 space-y-4" [formGroup]="form" (ngSubmit)="save()">
-          <div>
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Name</label>
-            <input
-              formControlName="name"
-              class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Type of debt</label>
-            <div class="mt-2 grid gap-2 md:grid-cols-2">
-              <button
-                type="button"
-                (click)="setKind('fixed_installment')"
-                class="rounded-lg border px-3 py-2 text-left transition"
-                [ngClass]="form.value.kind === 'fixed_installment' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'"
+        <!-- stepper -->
+        <div class="flex items-center gap-2 border-b border-slate-100 px-6 py-4">
+          <ng-container *ngFor="let label of stepLabels; let i = index">
+            <button
+              type="button"
+              (click)="goToStep(i + 1)"
+              class="flex items-center gap-2 rounded-lg px-2 py-1 transition"
+              [ngClass]="i + 1 <= step ? 'text-slate-900' : 'text-slate-400'"
+            >
+              <span
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold"
+                [ngClass]="i + 1 < step
+                  ? 'bg-emerald-500 text-white'
+                  : i + 1 === step
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-400'"
               >
-                <div class="text-sm font-semibold text-slate-900">Fixed instalment</div>
-                <div class="text-[11px] text-slate-500">Commercial credit: same amount each period, no interest.</div>
-              </button>
-              <button
-                type="button"
-                (click)="setKind('interest_bearing')"
-                class="rounded-lg border px-3 py-2 text-left transition"
-                [ngClass]="form.value.kind === 'interest_bearing' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'"
-              >
-                <div class="text-sm font-semibold text-slate-900">Interest on the balance</div>
-                <div class="text-[11px] text-slate-500">You pay what you decide; interest first, the rest cuts capital.</div>
-              </button>
-            </div>
-          </div>
+                {{ i + 1 < step ? '✓' : i + 1 }}
+              </span>
+              <span class="hidden text-xs font-semibold uppercase tracking-wide sm:block">{{ label }}</span>
+            </button>
+            <div *ngIf="i < stepLabels.length - 1" class="h-px flex-1"
+                 [ngClass]="i + 1 < step ? 'bg-emerald-300' : 'bg-slate-200'"></div>
+          </ng-container>
+        </div>
 
-          <div class="grid gap-4 md:grid-cols-2">
+        <form [formGroup]="form" (ngSubmit)="save()" class="px-6 py-6">
+          <!-- ======================= STEP 1 ======================= -->
+          <div *ngIf="step === 1" class="space-y-6">
             <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Account</label>
-              <select
-                formControlName="accountId"
-                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                (change)="syncCurrency()"
-              >
-                <option value="">Select account</option>
-                <option *ngFor="let account of accounts" [value]="account._id">
-                  {{ account.name }} ({{ account.currency }})
-                </option>
-              </select>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                What kind of debt is it?
+              </label>
+              <div class="mt-2 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  (click)="setKind('fixed_installment')"
+                  class="rounded-xl border-2 p-4 text-left transition"
+                  [ngClass]="form.value.kind === 'fixed_installment'
+                    ? 'border-slate-900 bg-slate-50'
+                    : 'border-slate-200 hover:border-slate-300'"
+                >
+                  <div class="text-sm font-semibold text-slate-900">Fixed instalment</div>
+                  <div class="mt-1 text-xs leading-relaxed text-slate-500">
+                    Commercial credit. The same amount every period, no interest, and it ends on a known date.
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  (click)="setKind('interest_bearing')"
+                  class="rounded-xl border-2 p-4 text-left transition"
+                  [ngClass]="form.value.kind === 'interest_bearing'
+                    ? 'border-slate-900 bg-slate-50'
+                    : 'border-slate-200 hover:border-slate-300'"
+                >
+                  <div class="text-sm font-semibold text-slate-900">Interest on the balance</div>
+                  <div class="mt-1 text-xs leading-relaxed text-slate-500">
+                    A rate per period on what you still owe. You pay what you decide; interest first, the rest cuts capital.
+                  </div>
+                </button>
+              </div>
             </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Category</label>
-              <select
-                formControlName="categoryId"
-                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              >
-                <option value="">Select category</option>
-                <option *ngFor="let category of categories" [value]="category._id">
-                  {{ category.name }}
-                </option>
-              </select>
-            </div>
-          </div>
 
-          <!-- Currency toggle: prominent, since loans can be USD or NIO -->
-          <div>
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Currency</label>
-            <div class="mt-2 flex items-center gap-3">
-              <div class="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Name</label>
+              <input
+                formControlName="name"
+                placeholder="Credito Cama + TV"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900"
+              />
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Currency of the debt
+              </label>
+              <div class="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
                 <button
                   type="button"
                   (click)="setCurrency('USD')"
-                  [disabled]="!!selectedAccount"
-                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed"
+                  class="rounded-md px-5 py-1.5 text-sm font-semibold transition"
                   [ngClass]="form.value.currency === 'USD' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
                 >
                   USD
@@ -417,179 +435,272 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                 <button
                   type="button"
                   (click)="setCurrency('NIO')"
-                  [disabled]="!!selectedAccount"
-                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed"
+                  class="rounded-md px-5 py-1.5 text-sm font-semibold transition"
                   [ngClass]="form.value.currency === 'NIO' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
                 >
                   NIO (C$)
                 </button>
               </div>
-              <span class="text-[11px] text-slate-500">
-                {{ currencyHint }}
-              </span>
+              <div class="mt-2 text-[11px] text-slate-500">
+                What the debt is denominated in. You choose which account pays it in the next step — it can be in
+                the other currency.
+              </div>
             </div>
-          </div>
 
-          <div class="grid gap-4 md:grid-cols-2">
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Principal · <span class="text-slate-900">{{ form.value.currency || 'USD' }}</span>
-              </label>
-              <div class="relative mt-2">
-                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-400">
-                  {{ form.value.currency === 'NIO' ? 'C$' : '$' }}
-                </span>
-                <input
-                  formControlName="principal"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-2 pl-8 text-sm"
-                />
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  {{ form.value.kind === 'interest_bearing' ? 'Amount borrowed' : 'Total of the credit' }}
+                </label>
+                <div class="relative mt-2">
+                  <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                    {{ symbol(form.value.currency) }}
+                  </span>
+                  <input
+                    formControlName="principal"
+                    type="number"
+                    step="0.01"
+                    class="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-slate-900"
+                  />
+                </div>
               </div>
-              <div class="mt-1 text-[11px] text-slate-500">Total amount of the loan.</div>
-            </div>
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Installment · <span class="text-slate-900">{{ form.value.currency || 'USD' }}</span>
-              </label>
-              <div class="relative mt-2">
-                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-xs font-semibold text-slate-400">
-                  {{ form.value.currency === 'NIO' ? 'C$' : '$' }}
-                </span>
-                <input
-                  formControlName="installmentAmount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="w-full rounded-lg border border-slate-200 px-3 py-2 pl-8 text-sm"
-                />
-              </div>
-              <div class="mt-1 text-[11px] text-slate-500">
-                {{ form.value.kind === 'interest_bearing' ? 'Only used for fixed-instalment debts.' : 'Per scheduled payment.' }}
-              </div>
-            </div>
-          </div>
 
-          <div *ngIf="form.value.kind === 'interest_bearing'" class="grid gap-4 md:grid-cols-2">
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Rate per period (%)</label>
-              <input
-                formControlName="interestRatePercent"
-                type="number"
-                step="0.01"
-                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <div class="mt-1 text-[11px] text-slate-500">
-                Charged on the outstanding balance each period, not per year.
+              <div *ngIf="form.value.kind === 'fixed_installment'">
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Amount per payment
+                </label>
+                <div class="relative mt-2">
+                  <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                    {{ symbol(form.value.currency) }}
+                  </span>
+                  <input
+                    formControlName="installmentAmount"
+                    type="number"
+                    step="0.01"
+                    class="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div *ngIf="form.value.kind === 'interest_bearing'">
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Rate per period
+                </label>
+                <div class="relative mt-2">
+                  <input
+                    formControlName="interestRatePercent"
+                    type="number"
+                    step="0.01"
+                    class="w-full rounded-lg border border-slate-200 py-2.5 pl-3 pr-9 text-sm outline-none transition focus:border-slate-900"
+                  />
+                  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
+                </div>
               </div>
             </div>
-            <div class="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+
+            <div
+              *ngIf="form.value.kind === 'interest_bearing'"
+              class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900"
+            >
               {{ interestPreview }}
             </div>
-          </div>
 
-          <div>
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Payment schedule</label>
-            <div class="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-              <button
-                type="button"
-                (click)="setScheduleType('monthly_days')"
-                class="rounded-md px-3 py-1.5 text-xs font-semibold transition"
-                [ngClass]="form.value.scheduleType === 'monthly_days' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
-              >
-                Days of the month
-              </button>
-              <button
-                type="button"
-                (click)="setScheduleType('interval_days')"
-                class="rounded-md px-3 py-1.5 text-xs font-semibold transition"
-                [ngClass]="form.value.scheduleType === 'interval_days' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
-              >
-                Every N days
-              </button>
-            </div>
-          </div>
-
-          <div *ngIf="form.value.scheduleType === 'monthly_days'">
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Days</label>
-            <input
-              formControlName="daysOfMonth"
-              placeholder="15,30"
-              class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <div class="mt-1 text-[11px] text-slate-500">Day 30 lands on the last day of shorter months.</div>
-          </div>
-
-          <div *ngIf="form.value.scheduleType === 'interval_days'" class="grid gap-4 md:grid-cols-2">
-            <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Every</label>
-              <div class="mt-2 flex items-center gap-2">
-                <input
-                  formControlName="intervalDays"
-                  type="number"
-                  min="1"
-                  class="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                />
-                <span class="text-sm text-slate-500">days</span>
-                <button type="button" class="text-[11px] font-semibold text-slate-500 underline" (click)="setInterval(7)">weekly</button>
-                <button type="button" class="text-[11px] font-semibold text-slate-500 underline" (click)="setInterval(14)">fortnightly</button>
+            <div *ngIf="form.value.kind === 'fixed_installment'">
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Number of payments <span class="text-slate-400">(optional)</span>
+              </label>
+              <input
+                formControlName="totalInstallments"
+                type="number"
+                min="1"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900 sm:w-40"
+              />
+              <div class="mt-1 text-[11px] text-slate-500">
+                Leave it empty and it runs until the balance reaches zero.
               </div>
             </div>
+          </div>
+
+          <!-- ======================= STEP 2 ======================= -->
+          <div *ngIf="step === 2" class="space-y-6">
             <div>
-              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">First payment</label>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">How often?</label>
+              <div class="mt-2 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  (click)="setScheduleType('monthly_days')"
+                  class="rounded-xl border-2 p-4 text-left transition"
+                  [ngClass]="form.value.scheduleType === 'monthly_days'
+                    ? 'border-slate-900 bg-slate-50'
+                    : 'border-slate-200 hover:border-slate-300'"
+                >
+                  <div class="text-sm font-semibold text-slate-900">Days of the month</div>
+                  <div class="mt-1 text-xs text-slate-500">The 15th and the 30th, or just the 1st.</div>
+                </button>
+                <button
+                  type="button"
+                  (click)="setScheduleType('interval_days')"
+                  class="rounded-xl border-2 p-4 text-left transition"
+                  [ngClass]="form.value.scheduleType === 'interval_days'
+                    ? 'border-slate-900 bg-slate-50'
+                    : 'border-slate-200 hover:border-slate-300'"
+                >
+                  <div class="text-sm font-semibold text-slate-900">Every N days</div>
+                  <div class="mt-1 text-xs text-slate-500">Weekly, fortnightly, or any interval you set.</div>
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="form.value.scheduleType === 'monthly_days'">
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Which days</label>
               <input
-                formControlName="startDate"
-                type="date"
-                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                formControlName="daysOfMonth"
+                placeholder="15, 30"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900 sm:w-48"
               />
+              <div class="mt-2 flex flex-wrap gap-2">
+                <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50" (click)="setDays('1')">1st</button>
+                <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50" (click)="setDays('15')">15th</button>
+                <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50" (click)="setDays('15, 30')">15th and 30th</button>
+              </div>
+              <div class="mt-2 text-[11px] text-slate-500">Day 30 lands on the last day of shorter months.</div>
             </div>
-          </div>
 
-          <div *ngIf="form.value.kind === 'fixed_installment'">
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
-              Number of instalments (optional)
-            </label>
-            <input
-              formControlName="totalInstallments"
-              type="number"
-              min="1"
-              class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
-            <div class="mt-1 text-[11px] text-slate-500">
-              Leave it empty and it runs until the balance reaches zero.
+            <div *ngIf="form.value.scheduleType === 'interval_days'" class="space-y-4">
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Every how many days</label>
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    formControlName="intervalDays"
+                    type="number"
+                    min="1"
+                    class="w-24 rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900"
+                  />
+                  <span class="text-sm text-slate-500">days</span>
+                  <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50" (click)="setInterval(7)">Weekly</button>
+                  <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50" (click)="setInterval(14)">Fortnightly</button>
+                  <button type="button" class="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50" (click)="setInterval(30)">Every 30 days</button>
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">First payment</label>
+                <input
+                  formControlName="startDate"
+                  type="date"
+                  class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900 sm:w-56"
+                />
+                <div class="mt-1 text-[11px] text-slate-500">Every later payment counts from this date.</div>
+              </div>
             </div>
+
+            <div class="rounded-lg bg-slate-50 px-4 py-3 text-[11px] text-slate-600">{{ cadenceSummary }}</div>
           </div>
 
-          <div>
-            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Notes</label>
-            <textarea
-              formControlName="notes"
-              rows="3"
-              class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            ></textarea>
-          </div>
+          <!-- ======================= STEP 3 ======================= -->
+          <div *ngIf="step === 3" class="space-y-6">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Paid from</label>
+                <select
+                  formControlName="accountId"
+                  class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900"
+                >
+                  <option value="">Select account</option>
+                  <option *ngFor="let account of accounts" [value]="account._id">
+                    {{ account.name }} ({{ account.currency }})
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Category</label>
+                <select
+                  formControlName="categoryId"
+                  class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900"
+                >
+                  <option value="">Select category</option>
+                  <option *ngFor="let category of categories" [value]="category._id">{{ category.name }}</option>
+                </select>
+              </div>
+            </div>
 
-          <label class="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" formControlName="isActive" />
-            Active
-          </label>
-
-          <div *ngIf="error" class="text-sm text-red-600">{{ error }}</div>
-
-          <div class="flex justify-end gap-3">
-            <button type="button" class="text-sm text-slate-500" (click)="closeModal()">Cancel</button>
-            <button
-              type="submit"
-              class="rounded bg-slate-900 px-4 py-2 text-xs uppercase tracking-wide text-white"
-              [disabled]="form.invalid || isSaving"
+            <div
+              *ngIf="isCrossCurrency"
+              class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-[11px] leading-relaxed text-sky-900"
             >
-              {{ isSaving ? 'Saving...' : 'Save' }}
+              {{ conversionHint }}
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Notes</label>
+              <textarea
+                formControlName="notes"
+                rows="2"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none transition focus:border-slate-900"
+              ></textarea>
+            </div>
+
+            <label class="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" formControlName="isActive" class="rounded" />
+              Active
+            </label>
+
+            <!-- review -->
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+              <div class="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Review</div>
+              <dl class="mt-3 space-y-2 text-sm">
+                <div class="flex justify-between gap-4">
+                  <dt class="text-slate-500">Debt</dt>
+                  <dd class="text-right font-medium text-slate-900">{{ reviewDebt }}</dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-slate-500">Payments</dt>
+                  <dd class="text-right font-medium text-slate-900">{{ reviewPayments }}</dd>
+                </div>
+                <div class="flex justify-between gap-4">
+                  <dt class="text-slate-500">Charged to</dt>
+                  <dd class="text-right font-medium text-slate-900">{{ reviewAccount }}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          <div *ngIf="error" class="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</div>
+
+          <!-- footer -->
+          <div class="mt-6 flex items-center justify-between border-t border-slate-100 pt-5">
+            <button
+              type="button"
+              class="text-sm font-medium text-slate-500 transition hover:text-slate-700"
+              (click)="step === 1 ? closeModal() : back()"
+            >
+              {{ step === 1 ? 'Cancel' : 'Back' }}
             </button>
+
+            <div class="flex items-center gap-3">
+              <span class="text-[11px] text-slate-400">Step {{ step }} of {{ stepLabels.length }}</span>
+              <button
+                *ngIf="step < stepLabels.length"
+                type="button"
+                (click)="next()"
+                [disabled]="!canContinue()"
+                class="rounded-lg bg-slate-900 px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-slate-800 disabled:opacity-40"
+              >
+                Continue
+              </button>
+              <button
+                *ngIf="step === stepLabels.length"
+                type="submit"
+                [disabled]="!canContinue() || isSaving"
+                class="rounded-lg bg-slate-900 px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-slate-800 disabled:opacity-40"
+              >
+                {{ isSaving ? 'Saving...' : editing ? 'Save changes' : 'Create debt' }}
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
+
 
     <!-- PAYMENT MODAL -->
     <div
@@ -631,6 +742,16 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
             [(ngModel)]="payment.amount"
             class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
           />
+        </div>
+
+        <div
+          *ngIf="payment.loan?.crossCurrency"
+          class="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-[11px] leading-relaxed text-sky-900"
+        >
+          Debt in {{ payment.occurrence.currency }}, paid from a {{ payment.loan!.accountCurrency }} account.
+          {{ symbol(payment.occurrence.currency) }}{{ (payment.amount || 0).toFixed(2) }} leaves the account as
+          {{ symbol(payment.loan!.accountCurrency) }}{{ accountChargeForPayment().toFixed(2) }}
+          at the global rate of {{ payment.loan!.exchangeRate }}.
         </div>
 
         <div class="mt-3 rounded-lg border border-slate-200 px-4 py-3 text-sm">
@@ -773,6 +894,10 @@ export class LoansComponent implements OnInit {
   schedule: LoanSchedule | null = null;
   scheduleLoanId = '';
   projectionPayment = 0;
+  step = 1;
+  readonly stepLabels = ['The debt', 'Schedule', 'Payment'];
+  /** Global córdobas-per-dollar rate from Settings; one rate for everything. */
+  fxRate = 36;
   editing: LoanItem | null = null;
   form: FormGroup;
   selectedMonth = new Date().toISOString().slice(0, 7);
@@ -782,6 +907,7 @@ export class LoansComponent implements OnInit {
     private readonly loansApi: LoansApiService,
     private readonly accountsApi: AccountsApiService,
     private readonly categoriesApi: CategoriesApiService,
+    private readonly settingsApi: SettingsApiService,
     private readonly confirmDialog: ConfirmService,
   ) {
     this.form = this.fb.group({
@@ -812,6 +938,15 @@ export class LoansComponent implements OnInit {
   loadReferences() {
     this.accountsApi.list().subscribe({ next: (items) => (this.accounts = items) });
     this.categoriesApi.list({ type: 'expense' }).subscribe({ next: (items) => (this.categories = items) });
+    this.settingsApi.list().subscribe({
+      next: (items) => {
+        const fx = items.find((item) => item.key === 'fxUsdToNio');
+        const parsed = Number(fx?.value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          this.fxRate = parsed;
+        }
+      },
+    });
   }
 
   loadLoans() {
@@ -824,6 +959,8 @@ export class LoansComponent implements OnInit {
 
   openCreate() {
     this.editing = null;
+    this.step = 1;
+    this.error = '';
     this.form.reset({
       name: '',
       kind: 'fixed_installment',
@@ -869,6 +1006,8 @@ export class LoansComponent implements OnInit {
 
   openEdit(item: LoanItem) {
     this.editing = item;
+    this.step = 1;
+    this.error = '';
     this.form.reset({
       name: item.name,
       kind: item.kind,
@@ -899,26 +1038,132 @@ export class LoansComponent implements OnInit {
     return this.accounts.find((item) => item._id === this.form.value.accountId);
   }
 
-  get currencyHint(): string {
-    const account = this.selectedAccount;
-    return account
-      ? `Follows ${account.name} (${account.currency}). Pick another account to change it.`
-      : 'Select an account first — the loan currency must match it.';
-  }
-
-  syncCurrency() {
-    const account = this.selectedAccount;
-    if (account) {
-      this.form.patchValue({ currency: account.currency });
-    }
-  }
-
   setCurrency(currency: 'USD' | 'NIO') {
-    // Only reachable while no account is selected; the buttons are disabled otherwise.
-    if (this.selectedAccount) {
-      return;
-    }
     this.form.patchValue({ currency });
+  }
+
+  symbol(currency: 'USD' | 'NIO' | null | undefined): string {
+    return currency === 'NIO' ? 'C$' : '$';
+  }
+
+  /** A córdoba debt paid from a dollar account, or the other way round. */
+  get isCrossCurrency(): boolean {
+    const account = this.selectedAccount;
+    return Boolean(account && account.currency !== this.form.value.currency);
+  }
+
+  convert(amount: number, from: 'USD' | 'NIO', to: 'USD' | 'NIO'): number {
+    if (from === to) return amount;
+    return to === 'USD' ? amount / this.fxRate : amount * this.fxRate;
+  }
+
+  get conversionHint(): string {
+    const account = this.selectedAccount;
+    if (!account) return '';
+    const debtCurrency = (this.form.value.currency || 'USD') as 'USD' | 'NIO';
+    const due = Number(
+      this.form.value.kind === 'interest_bearing'
+        ? (Number(this.form.value.principal || 0) * Number(this.form.value.interestRatePercent || 0)) / 100
+        : this.form.value.installmentAmount || 0,
+    );
+    const converted = this.convert(due, debtCurrency, account.currency);
+    const base = `The debt is in ${debtCurrency} and ${account.name} is a ${account.currency} account, so each payment is converted at the global rate of ${this.fxRate} (Settings › fxUsdToNio).`;
+    if (!due) return base;
+    return `${base} A payment of ${this.symbol(debtCurrency)}${due.toFixed(2)} leaves the account as ${this.symbol(account.currency)}${converted.toFixed(2)}.`;
+  }
+
+  // ----- wizard -----
+  get stepSubtitle(): string {
+    if (this.step === 1) return 'What you owe and on what terms.';
+    if (this.step === 2) return 'When the payments fall due.';
+    return 'Which account pays it, and a last look.';
+  }
+
+  get cadenceSummary(): string {
+    const value = this.form.value;
+    if (value.scheduleType === 'interval_days') {
+      const days = Number(value.intervalDays || 0);
+      if (!days) return 'Set the interval to see the cadence.';
+      const word = days === 7 ? 'weekly' : days === 14 ? 'fortnightly' : `every ${days} days`;
+      return `A payment ${word}, roughly ${Math.round(365 / days)} a year.`;
+    }
+    const days = this.parseDays(String(value.daysOfMonth || ''));
+    if (!days.length) return 'Set at least one day of the month.';
+    return `A payment on day ${days.join(' and ')} of every month, ${days.length * 12} a year.`;
+  }
+
+  get reviewDebt(): string {
+    const value = this.form.value;
+    const currency = (value.currency || 'USD') as 'USD' | 'NIO';
+    const principal = Number(value.principal || 0).toFixed(2);
+    if (value.kind === 'interest_bearing') {
+      return `${this.symbol(currency)}${principal} at ${value.interestRatePercent || 0}% per period on the balance`;
+    }
+    return `${this.symbol(currency)}${principal}, no interest`;
+  }
+
+  get reviewPayments(): string {
+    const value = this.form.value;
+    const currency = (value.currency || 'USD') as 'USD' | 'NIO';
+    if (value.kind === 'interest_bearing') {
+      const first = (Number(value.principal || 0) * Number(value.interestRatePercent || 0)) / 100;
+      return `${this.symbol(currency)}${first.toFixed(2)} of interest in the first period, plus whatever you put toward capital`;
+    }
+    const amount = Number(value.installmentAmount || 0).toFixed(2);
+    const count = value.totalInstallments ? ` × ${value.totalInstallments}` : '';
+    return `${this.symbol(currency)}${amount}${count}, ${this.cadenceSummary.toLowerCase()}`;
+  }
+
+  get reviewAccount(): string {
+    const account = this.selectedAccount;
+    if (!account) return 'No account selected yet';
+    if (!this.isCrossCurrency) return `${account.name} (${account.currency})`;
+    const debtCurrency = (this.form.value.currency || 'USD') as 'USD' | 'NIO';
+    const due = Number(
+      this.form.value.kind === 'interest_bearing'
+        ? (Number(this.form.value.principal || 0) * Number(this.form.value.interestRatePercent || 0)) / 100
+        : this.form.value.installmentAmount || 0,
+    );
+    return `${account.name} (${account.currency}) — about ${this.symbol(account.currency)}${this.convert(due, debtCurrency, account.currency).toFixed(2)} per payment at ${this.fxRate}`;
+  }
+
+  canContinue(): boolean {
+    const value = this.form.value;
+    if (this.step === 1) {
+      if (!String(value.name || '').trim()) return false;
+      if (!Number(value.principal)) return false;
+      if (value.kind === 'fixed_installment') return Number(value.installmentAmount) > 0;
+      return Number(value.interestRatePercent) > 0;
+    }
+    if (this.step === 2) {
+      if (value.scheduleType === 'interval_days') {
+        return Number(value.intervalDays) > 0 && Boolean(value.startDate);
+      }
+      return this.parseDays(String(value.daysOfMonth || '')).length > 0;
+    }
+    return Boolean(value.accountId) && Boolean(value.categoryId);
+  }
+
+  next() {
+    if (this.canContinue() && this.step < this.stepLabels.length) {
+      this.step += 1;
+      this.error = '';
+    }
+  }
+
+  back() {
+    if (this.step > 1) {
+      this.step -= 1;
+      this.error = '';
+    }
+  }
+
+  /** Only lets you jump to a step you have already cleared. */
+  goToStep(target: number) {
+    if (target < this.step) {
+      this.step = target;
+      this.error = '';
+    }
   }
 
   /** Surfaces what the API actually said instead of a generic message. */
@@ -931,12 +1176,6 @@ export class LoansComponent implements OnInit {
 
   save() {
     if (this.form.invalid) {
-      return;
-    }
-
-    const account = this.selectedAccount;
-    if (account && account.currency !== this.form.value.currency) {
-      this.error = `This loan is in ${this.form.value.currency} but ${account.name} is a ${account.currency} account. Pick an account in ${this.form.value.currency}.`;
       return;
     }
 
@@ -1050,6 +1289,15 @@ export class LoansComponent implements OnInit {
     return { interest: paid, principal: 0, capitalized, balanceAfter: balance + capitalized };
   }
 
+  /** What the account is actually debited, once converted. */
+  accountChargeForPayment(): number {
+    if (!this.payment?.loan) return Number(this.payment?.amount || 0);
+    const loan = this.payment.loan;
+    const amount = Number(this.payment.amount || 0);
+    if (!loan.crossCurrency) return amount;
+    return loan.accountCurrency === 'USD' ? amount / loan.exchangeRate : amount * loan.exchangeRate;
+  }
+
   submitPayment() {
     if (!this.payment) {
       return;
@@ -1141,6 +1389,10 @@ export class LoansComponent implements OnInit {
 
   setScheduleType(scheduleType: LoanScheduleType) {
     this.form.patchValue({ scheduleType });
+  }
+
+  setDays(days: string) {
+    this.form.patchValue({ daysOfMonth: days });
   }
 
   setInterval(days: number) {

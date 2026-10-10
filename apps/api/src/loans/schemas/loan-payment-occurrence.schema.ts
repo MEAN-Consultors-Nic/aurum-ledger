@@ -60,6 +60,19 @@ export class LoanPaymentOccurrence {
   @Prop({ min: 0, default: 0 })
   interestCapitalized: number;
 
+  // --- settlement in the paying account's currency ---
+  /** Currency of the account the money came out of. */
+  @Prop({ enum: ['USD', 'NIO'] })
+  accountCurrency?: 'USD' | 'NIO';
+
+  /** Amount actually debited, in the account's currency. */
+  @Prop({ min: 0 })
+  accountAmount?: number;
+
+  /** Córdobas per dollar used for the conversion. 1 when no conversion. */
+  @Prop({ min: 0 })
+  exchangeRate?: number;
+
   @Prop()
   note?: string;
 

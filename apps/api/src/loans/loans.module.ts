@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AccountsModule } from '../accounts/accounts.module';
 import { RecurringExpensesModule } from '../recurring-expenses/recurring-expenses.module';
+import { SettingsModule } from '../settings/settings.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { LoansController } from './loans.controller';
 import { LoansService } from './loans.service';
@@ -12,6 +13,7 @@ import { LoanPaymentOccurrence, LoanPaymentOccurrenceSchema } from './schemas/lo
   imports: [
     AccountsModule,
     RecurringExpensesModule,
+    SettingsModule,
     TransactionsModule,
     MongooseModule.forFeature([
       { name: Loan.name, schema: LoanSchema },

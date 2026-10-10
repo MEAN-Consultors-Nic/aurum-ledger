@@ -2,7 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AccountsService } from '../accounts/accounts.service';
+import { ConfigService } from '@nestjs/config';
 import { RecurringExpensesService } from '../recurring-expenses/recurring-expenses.service';
+import { SettingsService } from '../settings/settings.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { ConfirmLoanPaymentDto } from './dto/confirm-occurrence.dto';
 import { CreateLoanDto } from './dto/create-loan.dto';
@@ -29,13 +31,39 @@ export class LoansService {
     private readonly occurrenceModel: Model<LoanPaymentOccurrenceDocument>,
     private readonly accountsService: AccountsService,
     private readonly recurringExpensesService: RecurringExpensesService,
+    private readonly settingsService: SettingsService,
     private readonly transactionsService: TransactionsService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * One global rate (córdobas per dollar) from Settings, so a payment is
+   * never asked for its own. Falls back to FX_USD_TO_NIO, then 36.
+   */
+  private async fxRate(): Promise<number> {
+    const fromSettings = await this.settingsService.getNumber('fxUsdToNio');
+    if (fromSettings && fromSettings > 0) {
+      return fromSettings;
+    }
+    const raw = Number(this.config.get<string>('FX_USD_TO_NIO') ?? '36');
+    return Number.isFinite(raw) && raw > 0 ? raw : 36;
+  }
+
+  /**
+   * A debt is denominated in its own currency and may be paid from an
+   * account in the other one: a córdoba debt settled from a dollar account
+   * debits the dollar equivalent at the global rate.
+   */
+  private convert(amount: number, from: 'USD' | 'NIO', to: 'USD' | 'NIO', rate: number) {
+    if (from === to) return money(amount);
+    return to === 'USD' ? money(amount / rate) : money(amount * rate);
+  }
 
   // ---------------------------------------------------------------- loans
 
   async create(dto: CreateLoanDto, userId?: Types.ObjectId) {
-    await this.assertAccountCurrency(dto.accountId, dto.currency);
+    // The debt's currency is independent of the account that pays it.
+    await this.accountsService.findById(dto.accountId);
     this.assertShape(dto);
 
     const loan = await this.loanModel.create({
@@ -77,7 +105,7 @@ export class LoansService {
       .populate('accountId', 'name currency')
       .populate('categoryId', 'name type');
 
-    return loans.map((loan) => this.decorate(loan));
+    return Promise.all(loans.map((loan) => this.decorateWithFx(loan)));
   }
 
   async findById(id: string) {
@@ -88,7 +116,7 @@ export class LoansService {
     if (!loan) {
       throw new NotFoundException('Loan not found');
     }
-    return this.decorate(loan);
+    return this.decorateWithFx(loan);
   }
 
   async update(id: string, dto: UpdateLoanDto, userId?: Types.ObjectId) {
@@ -97,11 +125,8 @@ export class LoansService {
       throw new NotFoundException('Loan not found');
     }
 
-    if (dto.accountId || dto.currency) {
-      await this.assertAccountCurrency(
-        dto.accountId ?? loan.accountId.toString(),
-        dto.currency ?? loan.currency,
-      );
+    if (dto.accountId) {
+      await this.accountsService.findById(dto.accountId);
     }
 
     const confirmedCount = await this.occurrenceModel.countDocuments({
@@ -139,7 +164,7 @@ export class LoansService {
     await loan.save();
     await this.rebuildSchedule(loan);
 
-    return this.decorate(loan);
+    return this.decorateWithFx(loan);
   }
 
   async softDelete(id: string, userId?: Types.ObjectId) {
@@ -189,16 +214,27 @@ export class LoansService {
     const split = this.splitPayment(loan, balanceBefore, paidAmount);
 
     const paidDate = dto.paidDate ? new Date(dto.paidDate) : occurrence.date;
+    const account = await this.accountsService.findById(occurrence.accountId.toString());
+    const rate = await this.fxRate();
+    const accountAmount = this.convert(paidAmount, loan.currency, account.currency, rate);
+
     const transaction = await this.transactionsService.create(
       {
         type: 'expense',
         accountId: occurrence.accountId.toString(),
         categoryId: occurrence.categoryId.toString(),
-        amount: paidAmount,
-        currency: occurrence.currency,
+        amount: accountAmount,
+        currency: account.currency,
+        exchangeRate: account.currency === loan.currency ? undefined : rate,
         date: paidDate.toISOString(),
         reference: `Loan payment: ${loan.name}`,
-        notes: this.transactionNote(loan, split),
+        notes: this.transactionNote(loan, split, {
+          paidAmount,
+          accountAmount,
+          rate,
+          debtCurrency: loan.currency,
+          accountCurrency: account.currency,
+        }),
       },
       userId,
     );
@@ -211,6 +247,9 @@ export class LoansService {
     occurrence.interestPaid = split.interestPaid;
     occurrence.principalPaid = split.principalPaid;
     occurrence.interestCapitalized = split.interestCapitalized;
+    occurrence.accountCurrency = account.currency;
+    occurrence.accountAmount = accountAmount;
+    occurrence.exchangeRate = account.currency === loan.currency ? 1 : rate;
     occurrence.note = dto.note;
     occurrence.confirmedTransactionId = transaction._id;
     occurrence.updatedBy = userId;
@@ -378,7 +417,7 @@ export class LoansService {
     const projection = this.project(loan, query, rows.length, projectionStart);
 
     return {
-      loan: this.decorate(loan),
+      loan: await this.decorateWithFx(loan),
       history: rows,
       projection: projection.rows,
       projectionBasis: projection.basis,
@@ -488,15 +527,6 @@ export class LoansService {
 
   // -------------------------------------------------------------- helpers
 
-  private async assertAccountCurrency(accountId: string, currency: 'USD' | 'NIO') {
-    const account = await this.accountsService.findById(accountId);
-    if (account.currency !== currency) {
-      throw new BadRequestException(
-        `Loan currency must match account currency: ${account.name} is a ${account.currency} account.`,
-      );
-    }
-  }
-
   private assertShape(loan: CreateLoanDto | LoanDocument) {
     if (loan.scheduleType === 'interval_days' && !loan.intervalDays) {
       throw new BadRequestException('An interval schedule needs the number of days between payments');
@@ -562,18 +592,62 @@ export class LoansService {
   private transactionNote(
     loan: LoanDocument,
     split: { interestPaid: number; principalPaid: number; interestCapitalized: number },
+    fx: {
+      paidAmount: number;
+      accountAmount: number;
+      rate: number;
+      debtCurrency: 'USD' | 'NIO';
+      accountCurrency: 'USD' | 'NIO';
+    },
   ) {
-    if (loan.kind !== 'interest_bearing') {
-      return loan.notes;
+    const parts: string[] = [];
+
+    if (loan.kind === 'interest_bearing') {
+      parts.push(`interest ${split.interestPaid.toFixed(2)}`);
+      parts.push(`principal ${split.principalPaid.toFixed(2)}`);
+      if (split.interestCapitalized > 0) {
+        parts.push(`capitalised ${split.interestCapitalized.toFixed(2)}`);
+      }
     }
-    const parts = [
-      `interest ${split.interestPaid.toFixed(2)}`,
-      `principal ${split.principalPaid.toFixed(2)}`,
-    ];
-    if (split.interestCapitalized > 0) {
-      parts.push(`capitalised ${split.interestCapitalized.toFixed(2)}`);
+
+    if (fx.debtCurrency !== fx.accountCurrency) {
+      parts.push(
+        `${fx.debtCurrency} ${fx.paidAmount.toFixed(2)} settled as ${fx.accountCurrency} ${fx.accountAmount.toFixed(2)} at ${fx.rate}`,
+      );
     }
+
     return [loan.notes, parts.join(' · ')].filter(Boolean).join(' — ');
+  }
+
+  /** Adds the paying account's currency view when the two differ. */
+  private async decorateWithFx(loan: LoanDocument) {
+    const base = this.decorate(loan);
+    const accountId =
+      typeof loan.accountId === 'object' && loan.accountId !== null && '_id' in (loan.accountId as any)
+        ? (loan.accountId as any)._id.toString()
+        : loan.accountId.toString();
+
+    let accountCurrency: 'USD' | 'NIO' = loan.currency;
+    const populated = loan.accountId as unknown as { currency?: 'USD' | 'NIO' };
+    if (populated && typeof populated === 'object' && populated.currency) {
+      accountCurrency = populated.currency;
+    } else {
+      const account = await this.accountsService.findById(accountId);
+      accountCurrency = account.currency;
+    }
+
+    const rate = await this.fxRate();
+    const nextDue =
+      loan.kind === 'interest_bearing' ? base.nextInterestDue : money(loan.installmentAmount);
+
+    return {
+      ...base,
+      accountCurrency,
+      exchangeRate: rate,
+      crossCurrency: accountCurrency !== loan.currency,
+      nextDueInAccountCurrency: this.convert(nextDue, loan.currency, accountCurrency, rate),
+      balanceInAccountCurrency: this.convert(base.currentBalance, loan.currency, accountCurrency, rate),
+    };
   }
 
   private decorate(loan: LoanDocument) {

@@ -34,6 +34,11 @@ export type LoanItem = {
   remainingInstallments: number | null;
   nextInterestDue: number;
   progressPercent: number;
+  accountCurrency: 'USD' | 'NIO';
+  exchangeRate: number;
+  crossCurrency: boolean;
+  nextDueInAccountCurrency: number;
+  balanceInAccountCurrency: number;
 
   createdAt?: string;
   updatedAt?: string;
@@ -59,6 +64,9 @@ export type LoanPaymentOccurrence = {
   interestPaid: number;
   principalPaid: number;
   interestCapitalized: number;
+  accountCurrency?: 'USD' | 'NIO';
+  accountAmount?: number;
+  exchangeRate?: number;
   note?: string;
 
   confirmedTransactionId?: string;
