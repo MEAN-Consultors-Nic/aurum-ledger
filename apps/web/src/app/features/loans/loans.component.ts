@@ -40,6 +40,14 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
         </div>
       </header>
 
+      <div
+        *ngIf="actionError"
+        class="flex items-start justify-between gap-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+      >
+        <span>{{ actionError }}</span>
+        <button type="button" class="text-red-400 hover:text-red-600" (click)="actionError = ''">X</button>
+      </div>
+
       <!-- ALERT BANNER -->
       <div
         *ngIf="overdueCount() > 0"
@@ -349,7 +357,8 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                 <button
                   type="button"
                   (click)="setCurrency('USD')"
-                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  [disabled]="!!selectedAccount"
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed"
                   [ngClass]="form.value.currency === 'USD' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
                 >
                   USD
@@ -357,14 +366,15 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                 <button
                   type="button"
                   (click)="setCurrency('NIO')"
-                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition"
+                  [disabled]="!!selectedAccount"
+                  class="rounded-md px-4 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed"
                   [ngClass]="form.value.currency === 'NIO' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'"
                 >
                   NIO (C$)
                 </button>
               </div>
               <span class="text-[11px] text-slate-500">
-                Auto-syncs from the selected account.
+                {{ currencyHint }}
               </span>
             </div>
           </div>
@@ -457,6 +467,7 @@ export class LoansComponent implements OnInit {
   isSaving = false;
   isWorking = false;
   error = '';
+  actionError = '';
   editing: LoanItem | null = null;
   form: FormGroup;
   selectedMonth = new Date().toISOString().slice(0, 7);
@@ -559,20 +570,49 @@ export class LoansComponent implements OnInit {
     this.error = '';
   }
 
+  /** The account drives the currency: the API rejects any mismatch. */
+  get selectedAccount(): AccountItem | undefined {
+    return this.accounts.find((item) => item._id === this.form.value.accountId);
+  }
+
+  get currencyHint(): string {
+    const account = this.selectedAccount;
+    return account
+      ? `Follows ${account.name} (${account.currency}). Pick another account to change it.`
+      : 'Select an account first — the loan currency must match it.';
+  }
+
   syncCurrency() {
-    const accountId = this.form.value.accountId;
-    const account = this.accounts.find((item) => item._id === accountId);
+    const account = this.selectedAccount;
     if (account) {
       this.form.patchValue({ currency: account.currency });
     }
   }
 
   setCurrency(currency: 'USD' | 'NIO') {
+    // Only reachable while no account is selected; the buttons are disabled otherwise.
+    if (this.selectedAccount) {
+      return;
+    }
     this.form.patchValue({ currency });
+  }
+
+  /** Surfaces what the API actually said instead of a generic message. */
+  private apiError(err: unknown, fallback: string): string {
+    const message = (err as { error?: { message?: string | string[] } })?.error?.message;
+    if (Array.isArray(message)) return message.join('. ');
+    if (typeof message === 'string' && message.trim()) return message;
+    return fallback;
   }
 
   save() {
     if (this.form.invalid) {
+      return;
+    }
+
+    const account = this.selectedAccount;
+    if (account && account.currency !== this.form.value.currency) {
+      this.error = `This loan is in ${this.form.value.currency} but ${account.name} is a ${account.currency} account. Pick an account in ${this.form.value.currency}.`;
       return;
     }
 
@@ -603,8 +643,8 @@ export class LoansComponent implements OnInit {
         this.loadLoans();
         this.loadMonth();
       },
-      error: () => {
-        this.error = 'Unable to save loan';
+      error: (err) => {
+        this.error = this.apiError(err, 'Unable to save loan');
         this.isSaving = false;
       },
     });
@@ -636,9 +676,11 @@ export class LoansComponent implements OnInit {
     this.loansApi.confirmOccurrence(item._id).subscribe({
       next: () => {
         this.isWorking = false;
+        this.actionError = '';
         this.loadMonth();
       },
-      error: () => {
+      error: (err) => {
+        this.actionError = this.apiError(err, 'Unable to confirm this payment');
         this.isWorking = false;
       },
     });
@@ -652,9 +694,11 @@ export class LoansComponent implements OnInit {
     this.loansApi.omitOccurrence(item._id).subscribe({
       next: () => {
         this.isWorking = false;
+        this.actionError = '';
         this.loadMonth();
       },
-      error: () => {
+      error: (err) => {
+        this.actionError = this.apiError(err, 'Unable to omit this payment');
         this.isWorking = false;
       },
     });
@@ -668,9 +712,11 @@ export class LoansComponent implements OnInit {
     this.loansApi.reactivateOccurrence(item._id).subscribe({
       next: () => {
         this.isWorking = false;
+        this.actionError = '';
         this.loadMonth();
       },
-      error: () => {
+      error: (err) => {
+        this.actionError = this.apiError(err, 'Unable to reactivate this payment');
         this.isWorking = false;
       },
     });
