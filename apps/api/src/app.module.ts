@@ -27,6 +27,7 @@ import { PublicModule } from './public/public.module';
 import { RecurringExpensesModule } from './recurring-expenses/recurring-expenses.module';
 import { ReportsModule } from './reports/reports.module';
 import { LoansModule } from './loans/loans.module';
+import { McpModule } from './mcp/mcp.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { SearchModule } from './search/search.module';
 import { SettingsModule } from './settings/settings.module';
@@ -98,6 +99,7 @@ import { VaultModule } from './vault/vault.module';
     MailerModule,
     NotificationsEngineModule,
     ReconcileModule,
+    McpModule,
   ],
   controllers: [AppController],
 })

@@ -5,6 +5,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionLoggerFilter } from './common/filters/http-exception.filter';
 import { RequestLoggerInterceptor } from './common/interceptors/request-logger.interceptor';
 import { correlationIdMiddleware } from './common/middleware/correlation-id.middleware';
+import { setOpenApiDocument } from './mcp/openapi-store';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -38,6 +39,8 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+  // The MCP catalog is derived from this same document.
+  setOpenApiDocument(document);
 
   await app.listen(process.env.PORT ?? 3000);
 }
