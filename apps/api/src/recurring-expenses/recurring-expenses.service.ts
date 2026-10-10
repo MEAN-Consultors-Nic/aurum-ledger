@@ -48,6 +48,49 @@ export class RecurringExpensesService {
     return recurring;
   }
 
+  /**
+   * Loans used to create a shadow recurring expense per loan, so every loan
+   * payment could be recorded twice. Loans no longer do that; this clears
+   * what the old behaviour left behind. Confirmed transactions are kept —
+   * those are real movements and only a human can judge which were double
+   * counted.
+   */
+  async purgeLegacyLoanPayments(confirm = false) {
+    const legacy = await this.recurringExpenseModel.find({
+      name: { $regex: '^Loan payment: ', $options: 'i' },
+    });
+    const ids = legacy.map((item) => item._id);
+
+    const plannedCount = await this.occurrenceModel.countDocuments({
+      recurringExpenseId: { $in: ids },
+      status: 'planned',
+    });
+    const confirmedCount = await this.occurrenceModel.countDocuments({
+      recurringExpenseId: { $in: ids },
+      status: 'confirmed',
+    });
+
+    const report = {
+      recurringExpenses: legacy.map((item) => ({ id: item._id, name: item.name })),
+      plannedOccurrences: plannedCount,
+      confirmedOccurrences: confirmedCount,
+      deleted: false,
+      note: 'Confirmed occurrences and their transactions are never deleted — review those by hand.',
+    };
+
+    if (!confirm) {
+      return report;
+    }
+
+    await this.occurrenceModel.deleteMany({
+      recurringExpenseId: { $in: ids },
+      status: { $ne: 'confirmed' },
+    });
+    await this.recurringExpenseModel.deleteMany({ _id: { $in: ids } });
+
+    return { ...report, deleted: true };
+  }
+
   async findAll(filter: FilterRecurringExpenseDto) {
     const query: Record<string, unknown> = {};
     if (filter.isActive !== undefined) {

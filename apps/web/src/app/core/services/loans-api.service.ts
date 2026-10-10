@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { LoanAlerts, LoanItem, LoanPaymentOccurrence } from '../models/loan.model';
+import {
+  LoanAlerts,
+  LoanItem,
+  LoanPayload,
+  LoanPaymentOccurrence,
+  LoanSchedule,
+} from '../models/loan.model';
 
 @Injectable({ providedIn: 'root' })
 export class LoansApiService {
@@ -15,26 +21,31 @@ export class LoansApiService {
     return this.http.get<LoanItem[]>(`${environment.apiUrl}/loans`, { params: httpParams });
   }
 
-  create(payload: {
-    name: string;
-    principal: number;
-    installmentAmount: number;
-    currency: 'USD' | 'NIO';
-    accountId: string;
-    categoryId: string;
-    daysOfMonth: number[];
-    notes?: string;
-    isActive?: boolean;
-  }) {
+  get(id: string) {
+    return this.http.get<LoanItem>(`${environment.apiUrl}/loans/${id}`);
+  }
+
+  create(payload: LoanPayload) {
     return this.http.post<LoanItem>(`${environment.apiUrl}/loans`, payload);
   }
 
-  update(id: string, payload: Partial<LoanItem>) {
+  update(id: string, payload: Partial<LoanPayload>) {
     return this.http.patch<LoanItem>(`${environment.apiUrl}/loans/${id}`, payload);
   }
 
   remove(id: string) {
     return this.http.delete<LoanItem>(`${environment.apiUrl}/loans/${id}`);
+  }
+
+  /** History plus, for an open-payment loan, a simulation of what follows. */
+  schedule(id: string, paymentPerPeriod?: number) {
+    let httpParams = new HttpParams();
+    if (paymentPerPeriod) {
+      httpParams = httpParams.set('paymentPerPeriod', String(paymentPerPeriod));
+    }
+    return this.http.get<LoanSchedule>(`${environment.apiUrl}/loans/${id}/schedule`, {
+      params: httpParams,
+    });
   }
 
   occurrences(month?: string) {
@@ -47,16 +58,25 @@ export class LoansApiService {
     });
   }
 
-  confirmOccurrence(id: string) {
-    return this.http.post<LoanPaymentOccurrence>(`${environment.apiUrl}/loans/occurrences/${id}/confirm`, {});
+  confirmOccurrence(id: string, payload: { paidAmount?: number; paidDate?: string; note?: string } = {}) {
+    return this.http.post<LoanPaymentOccurrence>(
+      `${environment.apiUrl}/loans/occurrences/${id}/confirm`,
+      payload,
+    );
   }
 
   omitOccurrence(id: string) {
-    return this.http.post<LoanPaymentOccurrence>(`${environment.apiUrl}/loans/occurrences/${id}/omit`, {});
+    return this.http.post<LoanPaymentOccurrence>(
+      `${environment.apiUrl}/loans/occurrences/${id}/omit`,
+      {},
+    );
   }
 
   reactivateOccurrence(id: string) {
-    return this.http.post<LoanPaymentOccurrence>(`${environment.apiUrl}/loans/occurrences/${id}/reactivate`, {});
+    return this.http.post<LoanPaymentOccurrence>(
+      `${environment.apiUrl}/loans/occurrences/${id}/reactivate`,
+      {},
+    );
   }
 
   alerts(month?: string) {

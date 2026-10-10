@@ -5,7 +5,15 @@ import { AccountsApiService } from '../../core/services/accounts-api.service';
 import { CategoriesApiService } from '../../core/services/categories-api.service';
 import { ConfirmService } from '../../core/services/confirm.service';
 import { LoansApiService } from '../../core/services/loans-api.service';
-import { LoanItem, LoanPaymentOccurrence } from '../../core/models/loan.model';
+import {
+  LoanItem,
+  LoanKind,
+  LoanPayload,
+  LoanPaymentOccurrence,
+  LoanSchedule,
+  LoanScheduleRow,
+  LoanScheduleType,
+} from '../../core/models/loan.model';
 import { AccountItem } from '../../core/models/account.model';
 import { CategoryItem } from '../../core/models/category.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
@@ -106,10 +114,10 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
 
         <div class="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs text-slate-600">
           <div>
-            Total principal (USD): <span class="font-semibold text-slate-900">{{ formatMoney(totalPrincipal('USD'), 'USD') }}</span>
+            Owed now (USD): <span class="font-semibold text-slate-900">{{ formatMoney(totalOutstanding('USD'), 'USD') }}</span>
           </div>
           <div class="md:text-right">
-            Total principal (NIO): <span class="font-semibold text-slate-900">{{ formatMoney(totalPrincipal('NIO'), 'NIO') }}</span>
+            Owed now (NIO): <span class="font-semibold text-slate-900">{{ formatMoney(totalOutstanding('NIO'), 'NIO') }}</span>
           </div>
         </div>
       </section>
@@ -280,21 +288,40 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium text-slate-900">{{ s.name }}</span>
                 <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
-                  [ngClass]="s.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
-                  {{ s.isActive ? 'Active' : 'Inactive' }}
+                  [ngClass]="s.kind === 'interest_bearing' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'">
+                  {{ s.kind === 'interest_bearing' ? s.interestRatePercent + '% ' + periodWord(s) : 'Fixed instalment' }}
+                </span>
+                <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
+                  [ngClass]="statusClass(s)">
+                  {{ s.status === 'settled' ? 'Settled' : s.isActive ? 'Active' : 'Inactive' }}
                 </span>
               </div>
-              <div class="mt-1 text-xs text-slate-500">
-                {{ resolveAccountName(s) }} · day{{ s.daysOfMonth.length === 1 ? '' : 's' }} {{ s.daysOfMonth.join(', ') }}
+              <div class="mt-1 text-xs text-slate-500">{{ resolveAccountName(s) }} · {{ scheduleLabel(s) }}</div>
+              <div class="mt-2 h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full bg-emerald-500 transition-all" [style.width.%]="s.progressPercent"></div>
+              </div>
+              <div class="mt-1 text-[11px] text-slate-500">
+                {{ formatMoney(s.principalPaidTotal, s.currency) }} of
+                {{ formatMoney(s.principal, s.currency) }} capital repaid
+                <span *ngIf="s.interestPaidTotal > 0">
+                  · {{ formatMoney(s.interestPaidTotal, s.currency) }} paid in interest
+                </span>
               </div>
             </div>
             <div class="text-right md:min-w-32">
-              <div class="text-[10px] uppercase tracking-wide text-slate-400">Principal</div>
-              <div class="text-sm font-semibold text-slate-900">{{ formatMoney(s.principal, s.currency) }}</div>
+              <div class="text-[10px] uppercase tracking-wide text-slate-400">Balance owed</div>
+              <div class="text-sm font-semibold text-slate-900">{{ formatMoney(s.currentBalance, s.currency) }}</div>
             </div>
             <div class="text-right md:min-w-32">
-              <div class="text-[10px] uppercase tracking-wide text-slate-400">Installment</div>
-              <div class="text-sm font-semibold text-slate-900">{{ formatMoney(s.installmentAmount, s.currency) }}</div>
+              <div class="text-[10px] uppercase tracking-wide text-slate-400">
+                {{ s.kind === 'interest_bearing' ? 'Next interest' : 'Instalment' }}
+              </div>
+              <div class="text-sm font-semibold text-slate-900">
+                {{ formatMoney(s.kind === 'interest_bearing' ? s.nextInterestDue : s.installmentAmount, s.currency) }}
+              </div>
+              <div *ngIf="s.remainingInstallments" class="text-[11px] text-slate-500">
+                {{ s.remainingInstallments }} left
+              </div>
             </div>
             <app-action-menu [items]="sourceActions(s)" />
           </li>
@@ -319,6 +346,30 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
               formControlName="name"
               class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Type of debt</label>
+            <div class="mt-2 grid gap-2 md:grid-cols-2">
+              <button
+                type="button"
+                (click)="setKind('fixed_installment')"
+                class="rounded-lg border px-3 py-2 text-left transition"
+                [ngClass]="form.value.kind === 'fixed_installment' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'"
+              >
+                <div class="text-sm font-semibold text-slate-900">Fixed instalment</div>
+                <div class="text-[11px] text-slate-500">Commercial credit: same amount each period, no interest.</div>
+              </button>
+              <button
+                type="button"
+                (click)="setKind('interest_bearing')"
+                class="rounded-lg border px-3 py-2 text-left transition"
+                [ngClass]="form.value.kind === 'interest_bearing' ? 'border-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-300'"
+              >
+                <div class="text-sm font-semibold text-slate-900">Interest on the balance</div>
+                <div class="text-[11px] text-slate-500">You pay what you decide; interest first, the rest cuts capital.</div>
+              </button>
+            </div>
           </div>
 
           <div class="grid gap-4 md:grid-cols-2">
@@ -414,17 +465,100 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                   class="w-full rounded-lg border border-slate-200 px-3 py-2 pl-8 text-sm"
                 />
               </div>
-              <div class="mt-1 text-[11px] text-slate-500">Per scheduled payment.</div>
+              <div class="mt-1 text-[11px] text-slate-500">
+                {{ form.value.kind === 'interest_bearing' ? 'Only used for fixed-instalment debts.' : 'Per scheduled payment.' }}
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="form.value.kind === 'interest_bearing'" class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Rate per period (%)</label>
+              <input
+                formControlName="interestRatePercent"
+                type="number"
+                step="0.01"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <div class="mt-1 text-[11px] text-slate-500">
+                Charged on the outstanding balance each period, not per year.
+              </div>
+            </div>
+            <div class="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+              {{ interestPreview }}
             </div>
           </div>
 
           <div>
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Payment schedule</label>
+            <div class="mt-2 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              <button
+                type="button"
+                (click)="setScheduleType('monthly_days')"
+                class="rounded-md px-3 py-1.5 text-xs font-semibold transition"
+                [ngClass]="form.value.scheduleType === 'monthly_days' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+              >
+                Days of the month
+              </button>
+              <button
+                type="button"
+                (click)="setScheduleType('interval_days')"
+                class="rounded-md px-3 py-1.5 text-xs font-semibold transition"
+                [ngClass]="form.value.scheduleType === 'interval_days' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'"
+              >
+                Every N days
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="form.value.scheduleType === 'monthly_days'">
             <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Days</label>
             <input
               formControlName="daysOfMonth"
               placeholder="15,30"
               class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
             />
+            <div class="mt-1 text-[11px] text-slate-500">Day 30 lands on the last day of shorter months.</div>
+          </div>
+
+          <div *ngIf="form.value.scheduleType === 'interval_days'" class="grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Every</label>
+              <div class="mt-2 flex items-center gap-2">
+                <input
+                  formControlName="intervalDays"
+                  type="number"
+                  min="1"
+                  class="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <span class="text-sm text-slate-500">days</span>
+                <button type="button" class="text-[11px] font-semibold text-slate-500 underline" (click)="setInterval(7)">weekly</button>
+                <button type="button" class="text-[11px] font-semibold text-slate-500 underline" (click)="setInterval(14)">fortnightly</button>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">First payment</label>
+              <input
+                formControlName="startDate"
+                type="date"
+                class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
+          <div *ngIf="form.value.kind === 'fixed_installment'">
+            <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              Number of instalments (optional)
+            </label>
+            <input
+              formControlName="totalInstallments"
+              type="number"
+              min="1"
+              class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            />
+            <div class="mt-1 text-[11px] text-slate-500">
+              Leave it empty and it runs until the balance reaches zero.
+            </div>
           </div>
 
           <div>
@@ -456,6 +590,173 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
         </form>
       </div>
     </div>
+
+    <!-- PAYMENT MODAL -->
+    <div
+      *ngIf="payment"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4"
+    >
+      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div class="flex items-center justify-between">
+          <div class="text-lg font-semibold">Record payment</div>
+          <button class="text-slate-400" (click)="payment = null">X</button>
+        </div>
+
+        <div class="mt-1 text-sm text-slate-500">
+          {{ resolveLoanName(payment.occurrence) }} · due {{ formatShortDate(payment.occurrence.date) }}
+        </div>
+
+        <div *ngIf="payment.loan?.kind === 'interest_bearing'" class="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Balance owed</span>
+            <span class="font-semibold text-slate-900">
+              {{ formatMoney(payment.loan!.currentBalance, payment.occurrence.currency) }}
+            </span>
+          </div>
+          <div class="mt-1 flex justify-between">
+            <span class="text-slate-500">
+              Interest this period ({{ payment.loan!.interestRatePercent }}%)
+            </span>
+            <span class="font-semibold text-slate-900">
+              {{ formatMoney(payment.loan!.nextInterestDue, payment.occurrence.currency) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">Amount paid</label>
+          <input
+            type="number"
+            step="0.01"
+            [(ngModel)]="payment.amount"
+            class="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div class="mt-3 rounded-lg border border-slate-200 px-4 py-3 text-sm">
+          <div class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">This payment</div>
+          <div class="mt-2 flex justify-between">
+            <span class="text-slate-500">Interest</span>
+            <span class="text-slate-900">{{ formatMoney(paymentSplit().interest, payment.occurrence.currency) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">Capital</span>
+            <span class="text-slate-900">{{ formatMoney(paymentSplit().principal, payment.occurrence.currency) }}</span>
+          </div>
+          <div *ngIf="paymentSplit().capitalized > 0" class="flex justify-between text-amber-700">
+            <span>Unpaid interest added to the balance</span>
+            <span>{{ formatMoney(paymentSplit().capitalized, payment.occurrence.currency) }}</span>
+          </div>
+          <div class="mt-2 flex justify-between border-t border-slate-100 pt-2 font-semibold">
+            <span class="text-slate-500">Balance after</span>
+            <span class="text-slate-900">{{ formatMoney(paymentSplit().balanceAfter, payment.occurrence.currency) }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="paymentSplit().capitalized > 0" class="mt-2 text-[11px] text-amber-700">
+          This is less than the interest for the period, so the shortfall is added to the capital and will
+          itself earn interest.
+        </div>
+
+        <div *ngIf="actionError" class="mt-3 text-sm text-red-600">{{ actionError }}</div>
+
+        <div class="mt-5 flex justify-end gap-3">
+          <button type="button" class="text-sm text-slate-500" (click)="payment = null">Cancel</button>
+          <button
+            type="button"
+            (click)="submitPayment()"
+            [disabled]="isWorking || !payment.amount"
+            class="rounded bg-slate-900 px-4 py-2 text-xs uppercase tracking-wide text-white disabled:opacity-50"
+          >
+            {{ isWorking ? 'Saving...' : 'Record payment' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE MODAL -->
+    <div
+      *ngIf="schedule"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-8"
+    >
+      <div class="flex max-h-full w-full max-w-3xl flex-col rounded-2xl bg-white p-6 shadow-xl">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-lg font-semibold">{{ schedule.loan.name }}</div>
+            <div class="text-sm text-slate-500">
+              {{ formatMoney(schedule.loan.currentBalance, schedule.loan.currency) }} owed ·
+              {{ formatMoney(schedule.loan.interestPaidTotal, schedule.loan.currency) }} paid in interest
+            </div>
+          </div>
+          <button class="text-slate-400" (click)="schedule = null">X</button>
+        </div>
+
+        <div
+          *ngIf="schedule.projectionIsSimulation"
+          class="mt-4 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+        >
+          <div class="flex-1 text-[11px] text-amber-900">{{ schedule.projectionNote }}</div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-semibold text-amber-900">Simulate</span>
+            <input
+              type="number"
+              step="0.01"
+              [(ngModel)]="projectionPayment"
+              (ngModelChange)="reloadSchedule()"
+              class="w-28 rounded-lg border border-amber-200 px-2 py-1 text-sm"
+            />
+            <span class="text-[11px] text-amber-900">per period</span>
+          </div>
+        </div>
+
+        <div class="mt-4 min-h-0 flex-1 overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="sticky top-0 bg-white text-[10px] uppercase tracking-wide text-slate-400">
+              <tr class="border-b border-slate-100">
+                <th class="py-2 text-left">#</th>
+                <th class="py-2 text-left">Date</th>
+                <th class="py-2 text-right">Paid</th>
+                <th class="py-2 text-right">Interest</th>
+                <th class="py-2 text-right">Capital</th>
+                <th class="py-2 text-right">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of scheduleRows()" class="border-b border-slate-50"
+                  [ngClass]="row.actual ? '' : 'text-slate-400'">
+                <td class="py-2">{{ row.sequence }}</td>
+                <td class="py-2">
+                  {{ formatShortDate(row.date) }}
+                  <span *ngIf="row.status === 'omitted'" class="ml-1 text-[10px] font-semibold uppercase text-rose-600">omitted</span>
+                  <span *ngIf="!row.actual" class="ml-1 text-[10px] font-semibold uppercase">projected</span>
+                </td>
+                <td class="py-2 text-right">{{ row.paid.toFixed(2) }}</td>
+                <td class="py-2 text-right">
+                  {{ row.interest.toFixed(2) }}
+                  <span *ngIf="row.capitalized > 0" class="text-[10px] text-amber-700">
+                    (+{{ row.capitalized.toFixed(2) }})
+                  </span>
+                </td>
+                <td class="py-2 text-right">{{ row.principal.toFixed(2) }}</td>
+                <td class="py-2 text-right font-medium">{{ row.balanceAfter.toFixed(2) }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div *ngIf="scheduleRows().length === 0" class="py-10 text-center text-sm text-slate-500">
+            Nothing to show yet.
+          </div>
+
+          <div
+            *ngIf="schedule.projection.length === 0 && schedule.projectionIsSimulation && projectionPayment > 0"
+            class="mt-3 rounded-lg bg-rose-50 px-4 py-3 text-[11px] text-rose-800"
+          >
+            Paying {{ projectionPayment }} per period does not even cover the interest, so the balance would
+            never go down.
+          </div>
+        </div>
+      </div>
+    </div>
   `,
 })
 export class LoansComponent implements OnInit {
@@ -468,6 +769,10 @@ export class LoansComponent implements OnInit {
   isWorking = false;
   error = '';
   actionError = '';
+  payment: { occurrence: LoanPaymentOccurrence; loan: LoanItem | null; amount: number } | null = null;
+  schedule: LoanSchedule | null = null;
+  scheduleLoanId = '';
+  projectionPayment = 0;
   editing: LoanItem | null = null;
   form: FormGroup;
   selectedMonth = new Date().toISOString().slice(0, 7);
@@ -481,12 +786,18 @@ export class LoansComponent implements OnInit {
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required]],
+      kind: ['fixed_installment' as LoanKind, [Validators.required]],
       principal: [0, [Validators.required, Validators.min(0)]],
-      installmentAmount: [0, [Validators.required, Validators.min(0)]],
+      installmentAmount: [0],
+      interestRatePercent: [0],
       currency: ['USD', [Validators.required]],
       accountId: ['', [Validators.required]],
       categoryId: ['', [Validators.required]],
-      daysOfMonth: ['15,30', [Validators.required]],
+      scheduleType: ['monthly_days' as LoanScheduleType, [Validators.required]],
+      daysOfMonth: ['15,30'],
+      intervalDays: [7],
+      startDate: [new Date().toISOString().slice(0, 10)],
+      totalInstallments: [null],
       notes: [''],
       isActive: [true],
     });
@@ -515,12 +826,18 @@ export class LoansComponent implements OnInit {
     this.editing = null;
     this.form.reset({
       name: '',
+      kind: 'fixed_installment',
       principal: 0,
       installmentAmount: 0,
+      interestRatePercent: 0,
       currency: 'USD',
       accountId: '',
       categoryId: '',
+      scheduleType: 'monthly_days',
       daysOfMonth: '15,30',
+      intervalDays: 7,
+      startDate: new Date().toISOString().slice(0, 10),
+      totalInstallments: null,
       notes: '',
       isActive: true,
     });
@@ -529,6 +846,7 @@ export class LoansComponent implements OnInit {
 
   sourceActions(item: LoanItem): ActionMenuItem[] {
     return [
+      { label: 'Payment history', action: () => this.openSchedule(item) },
       { label: 'Edit', action: () => this.openEdit(item) },
       { label: item.isActive ? 'Disable' : 'Enable', action: () => this.toggleActive(item) },
       { label: 'Delete', action: () => this.remove(item), danger: true },
@@ -553,12 +871,18 @@ export class LoansComponent implements OnInit {
     this.editing = item;
     this.form.reset({
       name: item.name,
+      kind: item.kind,
       principal: item.principal,
       installmentAmount: item.installmentAmount,
+      interestRatePercent: item.interestRatePercent,
       currency: item.currency,
       accountId: this.resolveAccountId(item),
       categoryId: this.resolveCategoryId(item),
-      daysOfMonth: item.daysOfMonth.join(', '),
+      scheduleType: item.scheduleType,
+      daysOfMonth: (item.daysOfMonth || []).join(', '),
+      intervalDays: item.intervalDays ?? 7,
+      startDate: (item.startDate ?? new Date().toISOString()).slice(0, 10),
+      totalInstallments: item.totalInstallments ?? null,
       notes: item.notes || '',
       isActive: item.isActive,
     });
@@ -619,18 +943,37 @@ export class LoansComponent implements OnInit {
     this.isSaving = true;
     this.error = '';
 
-    const days = this.parseDays(String(this.form.value.daysOfMonth || ''));
-    const payload = {
-      name: String(this.form.value.name || ''),
-      principal: Number(this.form.value.principal || 0),
-      installmentAmount: Number(this.form.value.installmentAmount || 0),
-      currency: (this.form.value.currency || 'USD') as 'USD' | 'NIO',
-      accountId: String(this.form.value.accountId || ''),
-      categoryId: String(this.form.value.categoryId || ''),
-      daysOfMonth: days,
-      notes: String(this.form.value.notes || ''),
-      isActive: Boolean(this.form.value.isActive),
+    const value = this.form.value;
+    const kind = (value.kind || 'fixed_installment') as LoanKind;
+    const scheduleType = (value.scheduleType || 'monthly_days') as LoanScheduleType;
+
+    const payload: LoanPayload = {
+      name: String(value.name || ''),
+      kind,
+      principal: Number(value.principal || 0),
+      currency: (value.currency || 'USD') as 'USD' | 'NIO',
+      accountId: String(value.accountId || ''),
+      categoryId: String(value.categoryId || ''),
+      scheduleType,
+      notes: String(value.notes || ''),
+      isActive: Boolean(value.isActive),
     };
+
+    if (scheduleType === 'monthly_days') {
+      payload.daysOfMonth = this.parseDays(String(value.daysOfMonth || ''));
+    } else {
+      payload.intervalDays = Number(value.intervalDays || 0);
+      payload.startDate = new Date(String(value.startDate)).toISOString();
+    }
+
+    if (kind === 'fixed_installment') {
+      payload.installmentAmount = Number(value.installmentAmount || 0);
+      if (value.totalInstallments) {
+        payload.totalInstallments = Number(value.totalInstallments);
+      }
+    } else {
+      payload.interestRatePercent = Number(value.interestRatePercent || 0);
+    }
 
     const request = this.editing
       ? this.loansApi.update(this.editing._id, payload)
@@ -672,18 +1015,88 @@ export class LoansComponent implements OnInit {
     if (item.status !== 'planned') {
       return;
     }
+    this.actionError = '';
+    const loan = this.loans.find((candidate) => candidate._id === this.resolveLoanId(item)) ?? null;
+    this.payment = { occurrence: item, loan, amount: item.amount };
+  }
+
+  /**
+   * Mirrors the server: the interest for the period is covered first, what is
+   * left cuts capital, and interest left unpaid is added to the balance.
+   */
+  paymentSplit() {
+    const empty = { interest: 0, principal: 0, capitalized: 0, balanceAfter: 0 };
+    if (!this.payment) {
+      return empty;
+    }
+    const paid = Number(this.payment.amount || 0);
+    const loan = this.payment.loan;
+
+    if (!loan || loan.kind !== 'interest_bearing') {
+      const balance = loan?.currentBalance ?? 0;
+      const principal = Math.min(paid, balance);
+      return { interest: 0, principal, capitalized: 0, balanceAfter: balance - principal };
+    }
+
+    const balance = loan.currentBalance;
+    const interestDue = loan.nextInterestDue;
+
+    if (paid >= interestDue) {
+      const principal = Math.min(paid - interestDue, balance);
+      return { interest: interestDue, principal, capitalized: 0, balanceAfter: balance - principal };
+    }
+
+    const capitalized = interestDue - paid;
+    return { interest: paid, principal: 0, capitalized, balanceAfter: balance + capitalized };
+  }
+
+  submitPayment() {
+    if (!this.payment) {
+      return;
+    }
     this.isWorking = true;
-    this.loansApi.confirmOccurrence(item._id).subscribe({
-      next: () => {
-        this.isWorking = false;
-        this.actionError = '';
-        this.loadMonth();
-      },
+    this.actionError = '';
+    this.loansApi
+      .confirmOccurrence(this.payment.occurrence._id, { paidAmount: Number(this.payment.amount) })
+      .subscribe({
+        next: () => {
+          this.isWorking = false;
+          this.payment = null;
+          this.loadLoans();
+          this.loadMonth();
+        },
+        error: (err) => {
+          this.actionError = this.apiError(err, 'Unable to record this payment');
+          this.isWorking = false;
+        },
+      });
+  }
+
+  openSchedule(item: LoanItem) {
+    this.scheduleLoanId = item._id;
+    this.projectionPayment =
+      item.kind === 'interest_bearing' ? Math.round(item.nextInterestDue * 1.25) : item.installmentAmount;
+    this.reloadSchedule();
+  }
+
+  reloadSchedule() {
+    if (!this.scheduleLoanId) {
+      return;
+    }
+    this.loansApi.schedule(this.scheduleLoanId, this.projectionPayment || undefined).subscribe({
+      next: (data) => (this.schedule = data),
       error: (err) => {
-        this.actionError = this.apiError(err, 'Unable to confirm this payment');
-        this.isWorking = false;
+        this.actionError = this.apiError(err, 'Unable to load the schedule');
+        this.schedule = null;
       },
     });
+  }
+
+  scheduleRows(): LoanScheduleRow[] {
+    if (!this.schedule) {
+      return [];
+    }
+    return [...this.schedule.history, ...this.schedule.projection];
   }
 
   omit(item: LoanPaymentOccurrence) {
@@ -720,6 +1133,57 @@ export class LoansComponent implements OnInit {
         this.isWorking = false;
       },
     });
+  }
+
+  setKind(kind: LoanKind) {
+    this.form.patchValue({ kind });
+  }
+
+  setScheduleType(scheduleType: LoanScheduleType) {
+    this.form.patchValue({ scheduleType });
+  }
+
+  setInterval(days: number) {
+    this.form.patchValue({ intervalDays: days });
+  }
+
+  /** Live example of what the rate means on the principal entered. */
+  get interestPreview(): string {
+    const principal = Number(this.form.value.principal || 0);
+    const rate = Number(this.form.value.interestRatePercent || 0);
+    if (!principal || !rate) {
+      return 'Enter the principal and the rate to see what each period costs.';
+    }
+    const interest = (principal * rate) / 100;
+    return `At ${rate}% on ${principal.toFixed(2)}, the first period charges ${interest.toFixed(2)} in interest. Anything you pay above that reduces the capital.`;
+  }
+
+  periodWord(item: LoanItem): string {
+    if (item.scheduleType === 'interval_days') {
+      if (item.intervalDays === 7) return 'weekly';
+      if (item.intervalDays === 14) return 'fortnightly';
+      if (item.intervalDays === 30) return 'monthly';
+      return `every ${item.intervalDays}d`;
+    }
+    return 'monthly';
+  }
+
+  scheduleLabel(item: LoanItem): string {
+    if (item.scheduleType === 'interval_days') {
+      return `every ${item.intervalDays} day${item.intervalDays === 1 ? '' : 's'}`;
+    }
+    const days = item.daysOfMonth || [];
+    return `day${days.length === 1 ? '' : 's'} ${days.join(', ')}`;
+  }
+
+  statusClass(item: LoanItem): string {
+    if (item.status === 'settled') return 'bg-emerald-100 text-emerald-800';
+    return item.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500';
+  }
+
+  resolveLoanId(item: LoanPaymentOccurrence): string {
+    const loan = item.loanId as { _id: string } | string;
+    return typeof loan === 'string' ? loan : loan?._id || '';
   }
 
   parseDays(raw: string) {
@@ -800,6 +1264,12 @@ export class LoansComponent implements OnInit {
       .filter((o) => o.currency === currency)
       .filter((o) => (mode === 'confirmed' ? o.status === 'confirmed' : o.status !== 'omitted'))
       .reduce((sum, o) => sum + (o.amount ?? 0), 0);
+  }
+
+  totalOutstanding(currency: 'USD' | 'NIO'): number {
+    return this.loans
+      .filter((l) => l.status === 'active' && l.currency === currency)
+      .reduce((sum, l) => sum + (l.currentBalance || 0), 0);
   }
 
   totalPrincipal(currency: 'USD' | 'NIO'): number {
