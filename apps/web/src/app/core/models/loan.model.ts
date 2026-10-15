@@ -27,6 +27,8 @@ export type LoanItem = {
 
   status: LoanStatus;
   settledAt?: string;
+  rebaselinedAt?: string;
+  rebaselineNote?: string;
   isActive: boolean;
   notes?: string;
 
@@ -34,6 +36,7 @@ export type LoanItem = {
   remainingInstallments: number | null;
   nextInterestDue: number;
   progressPercent: number;
+  settledPayments: number;
   accountCurrency: 'USD' | 'NIO';
   exchangeRate: number;
   crossCurrency: boolean;
@@ -101,6 +104,8 @@ export type LoanAlerts = {
 
 export type LoanPayload = {
   name: string;
+  /** Update only: corrects what is still owed once payments exist. */
+  currentBalance?: number;
   kind: LoanKind;
   principal: number;
   currency: 'USD' | 'NIO';

@@ -133,11 +133,6 @@ export class LoansService {
       loanId: loan._id,
       status: 'confirmed',
     });
-    if (confirmedCount > 0 && dto.principal !== undefined && dto.principal !== loan.principal) {
-      throw new BadRequestException(
-        'This loan already has confirmed payments, so the principal can no longer be changed. Settle it and create a new one instead.',
-      );
-    }
 
     loan.name = dto.name ?? loan.name;
     loan.kind = dto.kind ?? loan.kind;
@@ -155,9 +150,42 @@ export class LoansService {
     loan.notes = dto.notes ?? loan.notes;
     loan.updatedBy = userId;
 
-    if (confirmedCount === 0 && dto.principal !== undefined) {
-      loan.principal = dto.principal;
-      loan.currentBalance = dto.principal;
+    // Terms — the kind of debt, its rate and its schedule — can always be
+    // changed: a credit that turns into an interest-bearing loan is an
+    // ordinary thing to happen. The numbers are what need care.
+    if (confirmedCount === 0) {
+      // Nothing has been paid yet, so the principal is still just a figure.
+      if (dto.principal !== undefined) {
+        loan.principal = dto.principal;
+        loan.currentBalance = dto.principal;
+      }
+      if (dto.currentBalance !== undefined) {
+        loan.currentBalance = money(dto.currentBalance);
+      }
+    } else {
+      // Payments exist, so principal stays as the historical figure and the
+      // outstanding balance is re-baselined explicitly, with a trail.
+      if (dto.currentBalance !== undefined && money(dto.currentBalance) !== money(loan.currentBalance)) {
+        const previous = money(loan.currentBalance);
+        loan.currentBalance = money(dto.currentBalance);
+        loan.rebaselinedAt = new Date();
+        loan.rebaselineNote = [
+          loan.rebaselineNote,
+          `${new Date().toISOString().slice(0, 10)}: balance set from ${previous.toFixed(2)} to ${loan.currentBalance.toFixed(2)}`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      }
+      if (dto.principal !== undefined && money(dto.principal) !== money(loan.principal)) {
+        throw new BadRequestException(
+          'This debt already has confirmed payments, so the original amount stays as it was recorded. Correct the outstanding balance instead — that is what the interest and the payments work from.',
+        );
+      }
+    }
+
+    if (loan.status === 'settled' && loan.currentBalance > 0) {
+      loan.status = 'active';
+      loan.settledAt = undefined;
     }
 
     this.assertShape(loan);
@@ -636,12 +664,18 @@ export class LoansService {
       accountCurrency = account.currency;
     }
 
+    const settledPayments = await this.occurrenceModel.countDocuments({
+      loanId: loan._id,
+      status: { $in: ['confirmed', 'omitted'] },
+    });
+
     const rate = await this.fxRate();
     const nextDue =
       loan.kind === 'interest_bearing' ? base.nextInterestDue : money(loan.installmentAmount);
 
     return {
       ...base,
+      settledPayments,
       accountCurrency,
       exchangeRate: rate,
       crossCurrency: accountCurrency !== loan.currency,

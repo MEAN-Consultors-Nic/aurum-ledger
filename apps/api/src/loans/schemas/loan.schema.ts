@@ -97,6 +97,13 @@ export class Loan {
   @Prop()
   settledAt?: Date;
 
+  /** Set when the outstanding balance was corrected by hand. */
+  @Prop()
+  rebaselinedAt?: Date;
+
+  @Prop()
+  rebaselineNote?: string;
+
   @Prop({ default: true })
   isActive: boolean;
 

@@ -460,8 +460,36 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                     formControlName="principal"
                     type="number"
                     step="0.01"
+                    [readonly]="isLocked"
+                    class="w-full rounded-lg border py-2.5 pl-9 pr-3 text-sm outline-none transition"
+                    [ngClass]="isLocked
+                      ? 'border-slate-200 bg-slate-50 text-slate-500'
+                      : 'border-slate-200 focus:border-slate-900'"
+                  />
+                </div>
+                <div *ngIf="isLocked" class="mt-1 text-[11px] text-slate-500">
+                  Kept as recorded — {{ editing!.settledPayments }} payment{{ editing!.settledPayments === 1 ? '' : 's' }}
+                  already settled against it.
+                </div>
+              </div>
+
+              <div *ngIf="isLocked">
+                <label class="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Outstanding balance now
+                </label>
+                <div class="relative mt-2">
+                  <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
+                    {{ symbol(form.value.currency) }}
+                  </span>
+                  <input
+                    formControlName="currentBalance"
+                    type="number"
+                    step="0.01"
                     class="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-slate-900"
                   />
+                </div>
+                <div class="mt-1 text-[11px] text-slate-500">
+                  What you still owe. Interest and payments work from this.
                 </div>
               </div>
 
@@ -496,6 +524,15 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                   <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">%</span>
                 </div>
               </div>
+            </div>
+
+            <div
+              *ngIf="isLocked && balanceChanged"
+              class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-900"
+            >
+              You are correcting the balance from {{ symbol(form.value.currency) }}{{ editing!.currentBalance.toFixed(2) }}
+              to {{ symbol(form.value.currency) }}{{ (form.value.currentBalance || 0).toFixed(2) }}. Past payments stay as
+              they are; everything from here on works from the new figure, and the change is recorded on the debt.
             </div>
 
             <div
@@ -914,6 +951,7 @@ export class LoansComponent implements OnInit {
       name: ['', [Validators.required]],
       kind: ['fixed_installment' as LoanKind, [Validators.required]],
       principal: [0, [Validators.required, Validators.min(0)]],
+      currentBalance: [0],
       installmentAmount: [0],
       interestRatePercent: [0],
       currency: ['USD', [Validators.required]],
@@ -965,6 +1003,7 @@ export class LoansComponent implements OnInit {
       name: '',
       kind: 'fixed_installment',
       principal: 0,
+      currentBalance: 0,
       installmentAmount: 0,
       interestRatePercent: 0,
       currency: 'USD',
@@ -1012,6 +1051,7 @@ export class LoansComponent implements OnInit {
       name: item.name,
       kind: item.kind,
       principal: item.principal,
+      currentBalance: item.currentBalance,
       installmentAmount: item.installmentAmount,
       interestRatePercent: item.interestRatePercent,
       currency: item.currency,
@@ -1040,6 +1080,16 @@ export class LoansComponent implements OnInit {
 
   setCurrency(currency: 'USD' | 'NIO') {
     this.form.patchValue({ currency });
+  }
+
+  /** Editing a debt that already has settled payments. */
+  get isLocked(): boolean {
+    return Boolean(this.editing && this.editing.settledPayments > 0);
+  }
+
+  get balanceChanged(): boolean {
+    if (!this.editing) return false;
+    return Number(this.form.value.currentBalance || 0) !== Number(this.editing.currentBalance);
   }
 
   symbol(currency: 'USD' | 'NIO' | null | undefined): string {
@@ -1095,7 +1145,9 @@ export class LoansComponent implements OnInit {
   get reviewDebt(): string {
     const value = this.form.value;
     const currency = (value.currency || 'USD') as 'USD' | 'NIO';
-    const principal = Number(value.principal || 0).toFixed(2);
+    const principal = (
+      this.isLocked ? Number(value.currentBalance || 0) : Number(value.principal || 0)
+    ).toFixed(2);
     if (value.kind === 'interest_bearing') {
       return `${this.symbol(currency)}${principal} at ${value.interestRatePercent || 0}% per period on the balance`;
     }
@@ -1131,7 +1183,7 @@ export class LoansComponent implements OnInit {
     const value = this.form.value;
     if (this.step === 1) {
       if (!String(value.name || '').trim()) return false;
-      if (!Number(value.principal)) return false;
+      if (this.isLocked ? !Number(value.currentBalance) : !Number(value.principal)) return false;
       if (value.kind === 'fixed_installment') return Number(value.installmentAmount) > 0;
       return Number(value.interestRatePercent) > 0;
     }
@@ -1212,6 +1264,14 @@ export class LoansComponent implements OnInit {
       }
     } else {
       payload.interestRatePercent = Number(value.interestRatePercent || 0);
+    }
+
+    if (this.editing) {
+      payload.currentBalance = Number(value.currentBalance || 0);
+      if (this.isLocked) {
+        // The original figure is history; only the balance moves.
+        delete (payload as Partial<LoanPayload>).principal;
+      }
     }
 
     const request = this.editing
@@ -1401,7 +1461,9 @@ export class LoansComponent implements OnInit {
 
   /** Live example of what the rate means on the principal entered. */
   get interestPreview(): string {
-    const principal = Number(this.form.value.principal || 0);
+    const principal = this.isLocked
+      ? Number(this.form.value.currentBalance || 0)
+      : Number(this.form.value.principal || 0);
     const rate = Number(this.form.value.interestRatePercent || 0);
     if (!principal || !rate) {
       return 'Enter the principal and the rate to see what each period costs.';
