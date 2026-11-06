@@ -247,7 +247,7 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                   </div>
                 </div>
               </div>
-              <div class="font-semibold text-emerald-700">{{ formatMoney(o.amount, o.currency) }}</div>
+              <div class="font-semibold text-emerald-700">{{ formatMoney(o.paidAmount ?? o.amount, o.currency) }}</div>
             </li>
           </ul>
         </ng-container>
@@ -733,7 +733,7 @@ export class RecurringExpensesComponent implements OnInit {
   recurringConfirmedTotal(currency: 'USD' | 'NIO') {
     return this.occurrences
       .filter((item) => item.currency === currency && item.status === 'confirmed')
-      .reduce((sum, item) => sum + (item.amount ?? 0), 0);
+      .reduce((sum, item) => sum + (item.paidAmount ?? item.amount ?? 0), 0);
   }
 
   recurringRemainingTotal(currency: 'USD' | 'NIO') {
@@ -817,7 +817,7 @@ export class RecurringExpensesComponent implements OnInit {
       const key = `${catName}::${o.currency}`;
       const entry = map.get(key) ?? { name: catName, currency: o.currency, planned: 0, paid: 0 };
       entry.planned += o.amount ?? 0;
-      if (o.status === 'confirmed') entry.paid += o.amount ?? 0;
+      if (o.status === 'confirmed') entry.paid += o.paidAmount ?? o.amount ?? 0;
       map.set(key, entry);
     }
     return Array.from(map.values())

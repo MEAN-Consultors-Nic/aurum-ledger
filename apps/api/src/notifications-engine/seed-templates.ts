@@ -191,4 +191,65 @@ export const SEED_TEMPLATES: SeedTemplate[] = [
 <p>The contract <strong>{{contract.title}}</strong> for <strong>{{client.name}}</strong> reached its end date on <strong>{{date contract.endDate}}</strong>.</p>
 <p>Decide whether to renew, replace, or cancel formally.</p>`,
   },
+  {
+    key: 'fortnight-plan-missing',
+    group: 'cashflow',
+    name: 'Plan your fortnight',
+    description:
+      'Reminder to open the bi-weekly planner for the current or next fortnight.',
+    eventKey: 'fortnight.plan_missing',
+    subject:
+      '{{#if startsTomorrow}}Tomorrow starts {{period.label}} — plan it{{else}}{{period.label}} has no plan yet{{/if}}',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;">Plan your fortnight</h2>
+{{#if startsTomorrow}}
+<p>The fortnight <strong>{{period.label}}</strong> starts tomorrow and it is not planned yet.</p>
+{{else}}
+<p>The fortnight <strong>{{period.label}}</strong> is running without a plan.</p>
+{{/if}}
+<p>Open the <strong>Bi-weekly planner</strong>: loans, recurring expenses, subscriptions and planned income are pulled in automatically — you only add what is missing.</p>
+{{#if previousOpen}}<p style="color:#b45309;">The previous fortnight is still open. Close it first so whatever was not paid moves forward.</p>{{/if}}`,
+  },
+  {
+    key: 'fortnight-lines-overdue',
+    group: 'cashflow',
+    name: 'Fortnight items overdue',
+    description:
+      'Daily digest of planned items past due in the current fortnight.',
+    eventKey: 'fortnight.lines_overdue',
+    subject: '{{count}} planned item(s) overdue — {{period.label}}',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;color:#be123c;">Overdue in {{period.label}}</h2>
+<p>These items were due and are not applied yet. Apply what was paid, skip or move the rest.</p>
+<table style="width:100%;border-collapse:collapse;margin:18px 0;">
+{{#each items}}
+  <tr><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;">{{name}}<br><span style="color:#64748b;font-size:12px;">due {{date dueDate}}</span></td><td style="padding:6px 0;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">{{money amount currency}}</td></tr>
+{{/each}}
+</table>
+<p>Total: <strong>{{money totalUsd "USD"}}</strong> (≈ {{money totalNio "NIO"}})</p>`,
+  },
+];
+
+/**
+ * Rules created once, when their event has no rule at all. They are ordinary
+ * rules afterwards: edit or disable them in the Notification center.
+ */
+export type SeedRule = {
+  name: string;
+  eventKey: string;
+  templateName: string;
+  recipients: string[];
+};
+
+export const SEED_RULES: SeedRule[] = [
+  {
+    name: 'Plan your fortnight',
+    eventKey: 'fortnight.plan_missing',
+    templateName: 'Plan your fortnight',
+    recipients: ['admin'],
+  },
+  {
+    name: 'Fortnight items overdue',
+    eventKey: 'fortnight.lines_overdue',
+    templateName: 'Fortnight items overdue',
+    recipients: ['admin'],
+  },
 ];

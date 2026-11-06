@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequestUser } from '../common/types/request-user.type';
+import { ConfirmSubscriptionOccurrenceDto } from './dto/confirm-occurrence.dto';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { FilterSubscriptionDto } from './dto/filter-subscription.dto';
 import { SubscriptionOccurrenceQueryDto } from './dto/occurrence-query.dto';
@@ -46,8 +47,12 @@ export class SubscriptionsController {
   }
 
   @Post('occurrences/:id/confirm')
-  confirmOccurrence(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.subscriptionsService.confirmOccurrence(id, user?._id);
+  confirmOccurrence(
+    @Param('id') id: string,
+    @Body() dto: ConfirmSubscriptionOccurrenceDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.subscriptionsService.confirmOccurrence(id, user?._id, dto);
   }
 
   @Post('occurrences/:id/omit')

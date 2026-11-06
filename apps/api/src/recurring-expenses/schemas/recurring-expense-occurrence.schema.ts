@@ -26,6 +26,13 @@ export class RecurringExpenseOccurrence {
   @Prop({ required: true, enum: ['planned', 'confirmed', 'omitted'], default: 'planned' })
   status: 'planned' | 'confirmed' | 'omitted';
 
+  /** What was actually paid, when confirmed. May differ from `amount`. */
+  @Prop({ min: 0 })
+  paidAmount?: number;
+
+  @Prop()
+  note?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'Transaction' })
   confirmedTransactionId?: Types.ObjectId;
 

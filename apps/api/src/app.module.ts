@@ -14,6 +14,7 @@ import { ContractsModule } from './contracts/contracts.module';
 import { CustomFieldsModule } from './custom-fields/custom-fields.module';
 import { EstimatesModule } from './estimates/estimates.module';
 import { FinanceModule } from './finance/finance.module';
+import { FortnightPlansModule } from './fortnight-plans/fortnight-plans.module';
 import { ImportsModule } from './imports/imports.module';
 import { NetWorthModule } from './net-worth/net-worth.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -87,6 +88,7 @@ import { VaultModule } from './vault/vault.module';
     RecurringExpensesModule,
     ReportsModule,
     LoansModule,
+    FortnightPlansModule,
     SubscriptionsModule,
     SiteMonitorModule,
     SiteAuditModule,

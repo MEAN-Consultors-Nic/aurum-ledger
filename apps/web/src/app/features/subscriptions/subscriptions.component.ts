@@ -212,7 +212,7 @@ import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/ac
                   <div class="text-xs text-slate-500">Charged {{ formatShortDate(o.date) }} · {{ resolveAccountName(o) }}</div>
                 </div>
               </div>
-              <div class="font-semibold text-emerald-700">{{ formatMoney(o.amount, o.currency) }}</div>
+              <div class="font-semibold text-emerald-700">{{ formatMoney(o.paidAmount ?? o.amount, o.currency) }}</div>
             </li>
           </ul>
         </ng-container>
@@ -693,7 +693,7 @@ export class SubscriptionsComponent implements OnInit {
         if (mode === 'confirmed') return o.status === 'confirmed';
         return o.status === 'planned';
       })
-      .reduce((sum, o) => sum + (o.amount ?? 0), 0);
+      .reduce((sum, o) => sum + ((mode === 'confirmed' ? o.paidAmount : undefined) ?? o.amount ?? 0), 0);
   }
 
   grouped() {

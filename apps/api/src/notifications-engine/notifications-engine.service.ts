@@ -8,7 +8,7 @@ import { ProjectsService } from '../projects/projects.service';
 import { ContractsService } from '../contracts/contracts.service';
 import { EstimatesService } from '../estimates/estimates.service';
 import { EVENT_CATALOG, findEventByKey } from './event-catalog';
-import { SEED_GROUPS, SEED_TEMPLATES } from './seed-templates';
+import { SEED_GROUPS, SEED_RULES, SEED_TEMPLATES } from './seed-templates';
 import { ManualSendDto } from './dto/manual-send.dto';
 import { CreateRuleDto, UpdateRuleDto } from './dto/rule.dto';
 import { CreateTemplateGroupDto, UpdateTemplateGroupDto } from './dto/template-group.dto';
@@ -574,6 +574,28 @@ export class NotificationsEngineService implements OnModuleInit {
       });
       const inserted = await this.templateModel.insertMany(docs);
       this.logger.log(`Seeded ${inserted.length} new system templates: ${inserted.map((t) => t.name).join(', ')}`);
+    }
+
+    // Rules ship only for events nobody has configured yet. Any rule for the
+    // event — even a deleted one — means the user already decided.
+    for (const seed of SEED_RULES) {
+      const decided = await this.ruleModel.exists({ eventKey: seed.eventKey });
+      if (decided) continue;
+      const template = await this.templateModel.findOne({
+        name: seed.templateName,
+        isSystem: true,
+      });
+      if (!template) continue;
+      await this.ruleModel.create({
+        name: seed.name,
+        eventKey: seed.eventKey,
+        templateId: template._id,
+        recipients: seed.recipients,
+        conditions: {},
+        enabled: true,
+        isSystem: true,
+      });
+      this.logger.log(`Seeded notification rule: ${seed.name}`);
     }
   }
 }

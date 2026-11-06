@@ -5,10 +5,15 @@ import { ClientsModule } from '../clients/clients.module';
 import { ContractsModule } from '../contracts/contracts.module';
 import { Contract, ContractSchema } from '../contracts/schemas/contract.schema';
 import { EstimatesModule } from '../estimates/estimates.module';
+import {
+  FortnightPlan,
+  FortnightPlanSchema,
+} from '../fortnight-plans/schemas/fortnight-plan.schema';
 import { PlannedIncomeOccurrence, PlannedIncomeOccurrenceSchema } from '../planned-incomes/schemas/planned-income-occurrence.schema';
 import { Project, ProjectSchema } from '../projects/schemas/project.schema';
 import { ProjectTask, ProjectTaskSchema } from '../projects/schemas/project-task.schema';
 import { ProjectsModule } from '../projects/projects.module';
+import { SettingsModule } from '../settings/settings.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsEngineController } from './notifications-engine.controller';
 import { NotificationsEngineService } from './notifications-engine.service';
@@ -34,12 +39,14 @@ import { TemplateRendererService } from './template-renderer.service';
       { name: Project.name, schema: ProjectSchema },
       { name: ProjectTask.name, schema: ProjectTaskSchema },
       { name: PlannedIncomeOccurrence.name, schema: PlannedIncomeOccurrenceSchema },
+      { name: FortnightPlan.name, schema: FortnightPlanSchema },
     ]),
     UsersModule,
     ClientsModule,
     ProjectsModule,
     ContractsModule,
     EstimatesModule,
+    SettingsModule,
   ],
   controllers: [NotificationsEngineController],
   providers: [

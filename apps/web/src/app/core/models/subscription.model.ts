@@ -21,6 +21,8 @@ export type SubscriptionOccurrence = {
   amount: number;
   currency: 'USD' | 'NIO';
   status: 'planned' | 'confirmed' | 'omitted';
+  /** What was actually charged, when it differed from the schedule. */
+  paidAmount?: number;
   confirmedTransactionId?: string;
   updatedAt?: string;
 };

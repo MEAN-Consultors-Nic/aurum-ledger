@@ -114,7 +114,15 @@ export class SubscriptionsService {
       .populate('categoryId', 'name type');
   }
 
-  async confirmOccurrence(id: string, userId?: Types.ObjectId) {
+  /**
+   * `options` lets the caller record what really happened when it differs
+   * from the schedule. Without it the occurrence is confirmed as planned.
+   */
+  async confirmOccurrence(
+    id: string,
+    userId?: Types.ObjectId,
+    options: { amount?: number; paidDate?: string; note?: string } = {},
+  ) {
     const occurrence = await this.occurrenceModel.findById(id);
     if (!occurrence) {
       throw new NotFoundException('Subscription occurrence not found');
@@ -128,21 +136,33 @@ export class SubscriptionsService {
       throw new NotFoundException('Subscription not found');
     }
 
+    const paidAmount = options.amount ?? occurrence.amount;
+    if (!(paidAmount > 0)) {
+      throw new BadRequestException(
+        'The amount paid must be greater than zero',
+      );
+    }
+    const paidDate = options.paidDate
+      ? new Date(options.paidDate)
+      : occurrence.date;
+
     const transaction = await this.transactionsService.create(
       {
         type: 'expense',
         accountId: occurrence.accountId.toString(),
         categoryId: occurrence.categoryId.toString(),
-        amount: occurrence.amount,
+        amount: paidAmount,
         currency: occurrence.currency,
-        date: occurrence.date.toISOString(),
+        date: paidDate.toISOString(),
         reference: `Subscription: ${subscription.name}`,
-        notes: subscription.notes,
+        notes: options.note || subscription.notes,
       },
       userId,
     );
 
     occurrence.status = 'confirmed';
+    occurrence.paidAmount = paidAmount;
+    occurrence.note = options.note;
     occurrence.confirmedTransactionId = transaction._id;
     occurrence.updatedBy = userId;
     await occurrence.save();

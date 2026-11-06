@@ -216,6 +216,65 @@ export const EVENT_CATALOG: EventDefinition[] = [
     ],
     defaultRecipients: ['admin'],
   },
+  {
+    key: 'fortnight.plan_missing',
+    label: 'Fortnight not planned',
+    description:
+      'The current fortnight has no plan yet, or the next one starts tomorrow without a plan. Checked daily.',
+    category: 'expense',
+    placeholders: [
+      {
+        path: 'period.label',
+        description: 'Fortnight to plan',
+        example: 'Nov 16–30, 2026',
+      },
+      {
+        path: 'period.key',
+        description: 'Fortnight key',
+        example: '2026-11-2',
+      },
+      {
+        path: 'startsTomorrow',
+        description: 'true when it is the next fortnight, starting tomorrow',
+      },
+      {
+        path: 'previousOpen',
+        description: 'true when the previous fortnight was never closed',
+      },
+    ],
+    defaultRecipients: ['admin'],
+  },
+  {
+    key: 'fortnight.lines_overdue',
+    label: 'Fortnight items overdue',
+    description:
+      'Daily digest of planned fortnight items past their due date and not applied yet.',
+    category: 'expense',
+    placeholders: [
+      {
+        path: 'period.label',
+        description: 'Fortnight',
+        example: 'Nov 1–15, 2026',
+      },
+      { path: 'count', description: 'Number of overdue items', example: '3' },
+      {
+        path: 'totalUsd',
+        description: 'Overdue total in USD',
+        example: '420.00',
+      },
+      {
+        path: 'totalNio',
+        description: 'Overdue total in córdobas',
+        example: '15456.00',
+      },
+      {
+        path: 'items',
+        description:
+          'Array of { name, amount, currency, dueDate } (use {{#each items}}…{{/each}})',
+      },
+    ],
+    defaultRecipients: ['admin'],
+  },
 ];
 
 export function findEventByKey(key: string): EventDefinition | undefined {

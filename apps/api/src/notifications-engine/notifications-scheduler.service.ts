@@ -1,14 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Contract, ContractDocument } from '../contracts/schemas/contract.schema';
+import {
+  nextPeriod,
+  periodForDate,
+  parsePeriodKey,
+  previousPeriod,
+} from '../fortnight-plans/fortnight-period';
+import {
+  FortnightPlan,
+  FortnightPlanDocument,
+} from '../fortnight-plans/schemas/fortnight-plan.schema';
 import {
   PlannedIncomeOccurrence,
   PlannedIncomeOccurrenceDocument,
 } from '../planned-incomes/schemas/planned-income-occurrence.schema';
 import { Project, ProjectDocument } from '../projects/schemas/project.schema';
 import { ProjectTask, ProjectTaskDocument } from '../projects/schemas/project-task.schema';
+import { SettingsService } from '../settings/settings.service';
 import { NotificationsEngineService } from './notifications-engine.service';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -23,7 +35,11 @@ export class NotificationsSchedulerService {
     @InjectModel(ProjectTask.name) private readonly taskModel: Model<ProjectTaskDocument>,
     @InjectModel(PlannedIncomeOccurrence.name)
     private readonly plannedOccurrenceModel: Model<PlannedIncomeOccurrenceDocument>,
+    @InjectModel(FortnightPlan.name)
+    private readonly fortnightPlanModel: Model<FortnightPlanDocument>,
     private readonly engine: NotificationsEngineService,
+    private readonly settingsService: SettingsService,
+    private readonly config: ConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -37,6 +53,8 @@ export class NotificationsSchedulerService {
         this.runProjectDueSoon(),
         this.runProjectTaskOverdue(),
         this.runPlannedIncomeOverdue(),
+        this.runFortnightPlanMissing(),
+        this.runFortnightLinesOverdue(),
       ]);
     } catch (err) {
       this.logger.error(`Trigger run failed: ${(err as Error).message}`);
@@ -245,6 +263,113 @@ export class NotificationsSchedulerService {
         },
       });
     }
+  }
+
+  // ===== Fortnight not planned (current one, or the next one starting tomorrow) =====
+  private async runFortnightPlanMissing() {
+    const now = new Date();
+    const dedupeDay = this.dayKey(now);
+    const current = periodForDate(now);
+    const tomorrow = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+    );
+    const candidates = [{ period: current, startsTomorrow: false }];
+    if (periodForDate(tomorrow).key !== current.key) {
+      candidates.push({ period: nextPeriod(current), startsTomorrow: true });
+    }
+
+    for (const { period, startsTomorrow } of candidates) {
+      const exists = await this.fortnightPlanModel.exists({
+        periodKey: period.key,
+      });
+      if (exists) continue;
+      const previousOpen = await this.fortnightPlanModel.exists({
+        periodKey: previousPeriod(period).key,
+        status: 'open',
+      });
+      await this.engine.dispatch({
+        eventKey: 'fortnight.plan_missing',
+        contextRef: `fortnight:${period.key}`,
+        dedupeKey: `fortnight.plan_missing:${period.key}:${dedupeDay}`,
+        context: {
+          period: {
+            key: period.key,
+            label: period.label,
+            start: period.start,
+            end: period.end,
+          },
+          startsTomorrow,
+          previousOpen: !!previousOpen,
+        },
+      });
+    }
+  }
+
+  // ===== Fortnight items overdue (one digest per open plan per day) =====
+  private async runFortnightLinesOverdue() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dedupeDay = this.dayKey(now);
+    const plans = await this.fortnightPlanModel
+      .find({
+        status: 'open',
+        lines: { $elemMatch: { status: 'planned', dueDate: { $lt: today } } },
+      })
+      .lean();
+    if (plans.length === 0) return;
+
+    const fx = await this.fxRate();
+    for (const plan of plans) {
+      const items = plan.lines
+        .filter(
+          (line) =>
+            line.status === 'planned' &&
+            !line.unplanned &&
+            line.dueDate &&
+            line.dueDate < today,
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime(),
+        )
+        .map((line) => ({
+          name: line.name,
+          amount: line.plannedAmount,
+          currency: line.currency,
+          dueDate: line.dueDate,
+          kind: line.kind,
+        }));
+      const outflows = items.filter((item) => item.kind !== 'income');
+      if (outflows.length === 0) continue;
+
+      const totalUsd = outflows.reduce(
+        (sum, item) =>
+          sum + (item.currency === 'USD' ? item.amount : item.amount / fx),
+        0,
+      );
+      const period = parsePeriodKey(plan.periodKey);
+      await this.engine.dispatch({
+        eventKey: 'fortnight.lines_overdue',
+        contextRef: `fortnight:${plan.periodKey}`,
+        dedupeKey: `fortnight.lines_overdue:${plan.periodKey}:${dedupeDay}`,
+        context: {
+          period: { key: period.key, label: period.label },
+          count: outflows.length,
+          items: outflows,
+          totalUsd: Math.round(totalUsd * 100) / 100,
+          totalNio: Math.round(totalUsd * fx * 100) / 100,
+        },
+      });
+    }
+  }
+
+  private async fxRate(): Promise<number> {
+    const fromSettings = await this.settingsService.getNumber('fxUsdToNio');
+    if (fromSettings && fromSettings > 0) return fromSettings;
+    const raw = Number(this.config.get<string>('FX_USD_TO_NIO') ?? '36');
+    return Number.isFinite(raw) && raw > 0 ? raw : 36;
   }
 
   // ---------- helpers ----------

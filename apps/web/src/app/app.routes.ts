@@ -35,6 +35,7 @@ import { NotificationCenterComponent } from './features/notification-center/noti
 import { TemplateEditorComponent } from './features/notification-center/template-editor.component';
 import { RecurringExpensesComponent } from './features/recurring-expenses/recurring-expenses.component';
 import { LoansComponent } from './features/loans/loans.component';
+import { FortnightPlannerComponent } from './features/fortnight-planner/fortnight-planner.component';
 import { SubscriptionsComponent } from './features/subscriptions/subscriptions.component';
 import { PortalEstimateComponent } from './features/portal/portal-estimate.component';
 import { PortalProjectComponent } from './features/portal/portal-project.component';
@@ -75,6 +76,8 @@ export const routes: Routes = [
       { path: 'planned-income', component: PlannedIncomesComponent },
       { path: 'recurring-expenses', component: RecurringExpensesComponent },
       { path: 'loans', component: LoansComponent },
+      { path: 'planner', component: FortnightPlannerComponent },
+      { path: 'planner/:periodKey', component: FortnightPlannerComponent },
       { path: 'subscriptions', component: SubscriptionsComponent },
       { path: 'notifications', component: NotificationsComponent },
       { path: 'notification-center', component: NotificationCenterComponent },

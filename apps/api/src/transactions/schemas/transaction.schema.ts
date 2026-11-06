@@ -56,6 +56,13 @@ export class Transaction {
   @Prop({ type: Types.ObjectId, ref: 'Client' })
   linkedClientId?: Types.ObjectId;
 
+  /**
+   * Line of a bi-weekly plan that produced this movement. Lets the planner
+   * recover an apply that died half-way without recording it twice.
+   */
+  @Prop({ type: Types.ObjectId })
+  planLineId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: 'User' })
   createdBy?: Types.ObjectId;
 
@@ -67,3 +74,4 @@ export const TransactionSchema = SchemaFactory.createForClass(Transaction);
 TransactionSchema.index({ accountId: 1, date: -1 });
 TransactionSchema.index({ linkedClientId: 1 });
 TransactionSchema.index({ linkedContractId: 1 });
+TransactionSchema.index({ planLineId: 1 }, { sparse: true });

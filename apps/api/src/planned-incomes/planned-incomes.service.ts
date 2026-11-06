@@ -132,7 +132,7 @@ export class PlannedIncomesService {
 
   async confirmOccurrence(
     id: string,
-    payload: { receivedAmount?: number; note?: string },
+    payload: { receivedAmount?: number; receivedDate?: string; note?: string },
     userId?: Types.ObjectId,
   ) {
     const occurrence = await this.occurrenceModel.findById(id);
@@ -162,7 +162,10 @@ export class PlannedIncomesService {
         categoryId: occurrence.categoryId.toString(),
         amount: receivedAmount,
         currency: occurrence.currency,
-        date: occurrence.date.toISOString(),
+        date: (payload.receivedDate
+          ? new Date(payload.receivedDate)
+          : occurrence.date
+        ).toISOString(),
         reference: `Planned income: ${planned.name}`,
         notes: payload.note || planned.notes,
       },

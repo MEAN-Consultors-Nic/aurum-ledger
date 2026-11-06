@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequestUser } from '../common/types/request-user.type';
+import { ConfirmRecurringOccurrenceDto } from './dto/confirm-occurrence.dto';
 import { CreateRecurringExpenseDto } from './dto/create-recurring-expense.dto';
 import { FilterRecurringExpenseDto } from './dto/filter-recurring-expense.dto';
 import { RecurringOccurrenceQueryDto } from './dto/occurrence-query.dto';
@@ -46,8 +47,12 @@ export class RecurringExpensesController {
   }
 
   @Post('occurrences/:id/confirm')
-  confirmOccurrence(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.recurringExpensesService.confirmOccurrence(id, user?._id);
+  confirmOccurrence(
+    @Param('id') id: string,
+    @Body() dto: ConfirmRecurringOccurrenceDto,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.recurringExpensesService.confirmOccurrence(id, user?._id, dto);
   }
 
   @Post('occurrences/:id/omit')

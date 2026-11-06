@@ -14,6 +14,7 @@ const DESTRUCTIVE_PATTERNS = [
   '*.cancel*',
   '*.reset*',
   '*.omit*',
+  '*.unapply*',
   'vault.reveal',
   'reconcile.fix',
   'users.toggleActive',

@@ -28,6 +28,7 @@ const NAV_GROUPS: NavGroup[] = [
     key: 'finance',
     label: 'Finance',
     items: [
+      { label: 'Bi-weekly planner', path: '/planner', icon: 'planner' },
       { label: 'Accounts', path: '/accounts', icon: 'accounts' },
       { label: 'Categories', path: '/categories', icon: 'categories' },
       { label: 'Transactions', path: '/transactions', icon: 'transactions' },

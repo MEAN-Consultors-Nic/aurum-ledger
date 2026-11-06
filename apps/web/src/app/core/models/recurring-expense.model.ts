@@ -21,6 +21,8 @@ export type RecurringExpenseOccurrence = {
   amount: number;
   currency: 'USD' | 'NIO';
   status: 'planned' | 'confirmed' | 'omitted';
+  /** What was actually paid, when it differed from the schedule. */
+  paidAmount?: number;
   confirmedTransactionId?: string;
   updatedAt?: string;
 };

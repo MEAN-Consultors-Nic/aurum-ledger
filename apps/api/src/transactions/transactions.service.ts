@@ -18,7 +18,11 @@ export class TransactionsService {
     private readonly contractsService: ContractsService,
   ) {}
 
-  async create(dto: CreateTransactionDto, userId?: Types.ObjectId) {
+  async create(
+    dto: CreateTransactionDto,
+    userId?: Types.ObjectId,
+    links: { planLineId?: Types.ObjectId } = {},
+  ) {
     const account = await this.accountsService.findById(dto.accountId);
     if (account.currency !== dto.currency) {
       throw new BadRequestException('Transaction currency must match account currency');
@@ -57,12 +61,17 @@ export class TransactionsService {
       notes: dto.notes,
       linkedClientId: dto.linkedClientId ? new Types.ObjectId(dto.linkedClientId) : undefined,
       linkedContractId: dto.linkedContractId ? new Types.ObjectId(dto.linkedContractId) : undefined,
+      planLineId: links.planLineId,
       createdBy: userId,
       updatedBy: userId,
     });
   }
 
-  async createTransfer(dto: CreateTransferDto, userId?: Types.ObjectId) {
+  async createTransfer(
+    dto: CreateTransferDto,
+    userId?: Types.ObjectId,
+    links: { planLineId?: Types.ObjectId } = {},
+  ) {
     if (dto.fromAccountId === dto.toAccountId) {
       throw new BadRequestException('Transfer accounts must be different');
     }
@@ -101,6 +110,7 @@ export class TransactionsService {
       reference: dto.reference,
       notes: dto.notes,
       transferGroupId,
+      planLineId: links.planLineId,
       createdBy: userId,
       updatedBy: userId,
     });
