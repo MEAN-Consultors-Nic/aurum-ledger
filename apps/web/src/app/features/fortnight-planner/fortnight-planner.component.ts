@@ -19,6 +19,7 @@ import { ConfirmService } from '../../core/services/confirm.service';
 import { FortnightPlansApiService } from '../../core/services/fortnight-plans-api.service';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
 import { CurrencyView, FortnightTrendComponent } from './fortnight-trend.component';
+import { FortnightWizardComponent } from './fortnight-wizard.component';
 
 type QuickAdd = { name: string; amount: number | null; currency: Currency; dueDate: string };
 
@@ -68,7 +69,7 @@ const SECTIONS: Array<{ kind: PlanLineKind; title: string; hint: string }> = [
 @Component({
   selector: 'app-fortnight-planner',
   standalone: true,
-  imports: [CommonModule, FormsModule, ActionMenuComponent, FortnightTrendComponent],
+  imports: [CommonModule, FormsModule, ActionMenuComponent, FortnightTrendComponent, FortnightWizardComponent],
   template: `
     <div class="space-y-6">
       <!-- HEADER -->
@@ -100,11 +101,15 @@ const SECTIONS: Array<{ kind: PlanLineKind; title: string; hint: string }> = [
               [ngClass]="view === v.key ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'">{{ v.label }}</button>
           </div>
           <ng-container *ngIf="detail?.plan as plan">
-            <button *ngIf="plan.status === 'open'" (click)="sync()" [disabled]="busy"
+            <button *ngIf="plan.status === 'open' && !showWizard()" (click)="editing = true" [disabled]="busy"
+              class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+              Edit plan
+            </button>
+            <button *ngIf="plan.status === 'open' && !showWizard()" (click)="sync()" [disabled]="busy"
               class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50 disabled:opacity-50">
               Sync
             </button>
-            <button *ngIf="plan.status === 'open'" (click)="closeModalOpen = true" [disabled]="busy"
+            <button *ngIf="plan.status === 'open' && !showWizard()" (click)="closeModalOpen = true" [disabled]="busy"
               class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white hover:bg-slate-800 disabled:opacity-50">
               Close fortnight
             </button>
@@ -132,21 +137,13 @@ const SECTIONS: Array<{ kind: PlanLineKind; title: string; hint: string }> = [
         Loading fortnight…
       </div>
 
-      <!-- EMPTY -->
-      <section *ngIf="detail && !detail.plan" class="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-        <div class="text-lg font-semibold text-slate-900">{{ detail.period.label }} is not planned yet</div>
-        <p class="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-          Starting the plan pulls in everything already scheduled for these days — loan payments, recurring expenses,
-          subscriptions and planned income — plus anything still unpaid from before. Lines you marked to repeat are copied
-          from your last fortnight. Then you add what is missing.
-        </p>
-        <button (click)="open()" [disabled]="busy"
-          class="mt-6 rounded-lg bg-slate-900 px-5 py-2.5 text-xs font-semibold uppercase tracking-wide text-white hover:bg-slate-800 disabled:opacity-50">
-          {{ busy ? 'Starting…' : 'Start planning ' + detail.period.label }}
-        </button>
-      </section>
+      <!-- PLANNING WIZARD (no plan yet, a draft, or editing) -->
+      <app-fortnight-wizard *ngIf="detail && showWizard()"
+        [detail]="detail" [accounts]="accounts" [categories]="categories" [view]="view"
+        [canCancel]="!!detail.plan?.plannedAt"
+        (detailChange)="setDetail($event)" (finished)="wizardDone()" (cancelled)="editing = false" />
 
-      <ng-container *ngIf="detail?.plan && detail?.summary">
+      <ng-container *ngIf="detail?.plan && detail?.summary && !showWizard()">
         <div *ngIf="detail!.plan!.status === 'closed'" class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           This fortnight is closed. The figures below are frozen as they were when you closed it.
         </div>
@@ -385,7 +382,7 @@ const SECTIONS: Array<{ kind: PlanLineKind; title: string; hint: string }> = [
         </section>
       </ng-container>
 
-      <app-fortnight-trend [analytics]="analytics" [currency]="view" />
+      <app-fortnight-trend *ngIf="!showWizard()" [analytics]="analytics" [currency]="view" />
     </div>
 
     <!-- APPLY MODAL -->
@@ -693,6 +690,8 @@ export class FortnightPlannerComponent implements OnInit, OnDestroy {
   promoteDays = '';
   closeModalOpen = false;
   closePending: 'carry' | 'skip' = 'carry';
+  /** The user asked to go back into the wizard on a plan already confirmed. */
+  editing = false;
 
   private routeSub?: Subscription;
 
@@ -743,7 +742,21 @@ export class FortnightPlannerComponent implements OnInit, OnDestroy {
   }
 
   go(periodKey: string) {
+    this.editing = false;
     this.router.navigate(['/planner', periodKey]);
+  }
+
+  /** Planning happens in the wizard; tracking starts once the plan is confirmed. */
+  showWizard() {
+    const plan = this.detail?.plan;
+    if (!plan) return true;
+    if (plan.status !== 'open') return false;
+    return !plan.plannedAt || this.editing;
+  }
+
+  wizardDone() {
+    this.editing = false;
+    this.loadAnalytics();
   }
 
   currentKey() {
@@ -756,7 +769,7 @@ export class FortnightPlannerComponent implements OnInit, OnDestroy {
     localStorage.setItem(VIEW_KEY, view);
   }
 
-  private setDetail(detail: FortnightDetail) {
+  setDetail(detail: FortnightDetail) {
     this.detail = detail;
     this.loading = false;
     this.notes = detail.plan?.notes ?? '';
@@ -796,10 +809,6 @@ export class FortnightPlannerComponent implements OnInit, OnDestroy {
   }
 
   // ------------------------------------------------------------- plan
-
-  open() {
-    this.run(this.api.open(this.periodKey), { fallback: 'Could not start the fortnight.' });
-  }
 
   sync() {
     this.run(this.api.sync(this.periodKey));

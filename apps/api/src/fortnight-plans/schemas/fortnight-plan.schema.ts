@@ -182,6 +182,13 @@ export class FortnightPlan {
   @Prop({ type: Date })
   lastSyncedAt?: Date;
 
+  /** Set when the planning wizard was completed; until then the plan is a draft. */
+  @Prop({ type: Date })
+  plannedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  plannedBy?: Types.ObjectId;
+
   @Prop({ type: Date })
   closedAt?: Date;
 

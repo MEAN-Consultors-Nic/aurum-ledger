@@ -110,6 +110,8 @@ export type FortnightPlan = {
   lines: PlanLine[];
   closedAt?: string;
   lastSyncedAt?: string;
+  /** Set when the planning wizard was finished; until then the plan is a draft. */
+  plannedAt?: string;
 };
 
 export type FortnightDetail = {

@@ -40,6 +40,11 @@ export class FortnightPlansApiService {
     return this.http.post<FortnightDetail>(`${this.base}/${periodKey}/reopen`, {});
   }
 
+  /** Finishes the planning wizard. */
+  confirm(periodKey: string) {
+    return this.http.post<FortnightDetail>(`${this.base}/${periodKey}/confirm`, {});
+  }
+
   remove(periodKey: string) {
     return this.http.delete<{ deleted: boolean }>(`${this.base}/${periodKey}`);
   }

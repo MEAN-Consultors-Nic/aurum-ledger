@@ -92,6 +92,15 @@ export class FortnightPlansController {
     return this.plans.close(periodKey, dto, user?._id);
   }
 
+  /** Finishes the planning wizard: the draft becomes the plan to track. */
+  @Post(':periodKey/confirm')
+  confirm(
+    @Param('periodKey') periodKey: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.plans.confirmPlan(periodKey, user?._id);
+  }
+
   @Post(':periodKey/reopen')
   reopen(
     @Param('periodKey') periodKey: string,

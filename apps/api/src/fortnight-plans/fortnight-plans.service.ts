@@ -398,6 +398,17 @@ export class FortnightPlansService {
     return this.getDetailFresh(period);
   }
 
+  /** Ends the planning wizard: the plan stops being a draft and tracking begins. */
+  async confirmPlan(periodKey: string, userId?: Types.ObjectId) {
+    const plan = await this.requirePlan(periodKey);
+    this.assertOpen(plan);
+    await this.planModel.updateOne(
+      { _id: plan._id, status: 'open' },
+      { $set: { plannedAt: new Date(), plannedBy: userId, updatedBy: userId } },
+    );
+    return this.getDetailFresh(this.period(periodKey));
+  }
+
   async reopen(periodKey: string, userId?: Types.ObjectId) {
     const plan = await this.requirePlan(periodKey);
     await this.planModel.updateOne(
