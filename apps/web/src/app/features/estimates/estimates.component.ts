@@ -14,6 +14,10 @@ import {
   SendNotificationDialogComponent,
   SendNotificationConfig,
 } from '../../shared/send-notification-dialog/send-notification-dialog.component';
+import {
+  EstimateShareDialogComponent,
+  EstimateShareTarget,
+} from '../../shared/estimate-share-dialog/estimate-share-dialog.component';
 
 @Component({
   selector: 'app-estimates',
@@ -25,6 +29,7 @@ import {
     RouterLink,
     ActionMenuComponent,
     SendNotificationDialogComponent,
+    EstimateShareDialogComponent,
   ],
   template: `
     <div class="space-y-6">
@@ -465,6 +470,13 @@ import {
       </div>
     </div>
 
+    <!-- Share by link (PIN protected) -->
+    <app-estimate-share-dialog
+      [open]="!!shareTarget"
+      [target]="shareTarget"
+      (closed)="closeShare($event)"
+    ></app-estimate-share-dialog>
+
     <!-- Send notification dialog -->
     <app-send-notification-dialog
       [open]="isSendNotifOpen"
@@ -504,6 +516,9 @@ export class EstimatesComponent implements OnInit {
   convertForm: FormGroup;
 
   deliverables: string[] = [];
+
+  // Share by link dialog
+  shareTarget: EstimateShareTarget | null = null;
 
   // Send notification dialog state
   isSendNotifOpen = false;
@@ -619,6 +634,11 @@ export class EstimatesComponent implements OnInit {
         action: () => this.openSendNotification(item, 'estimate.sent', 'Send estimate to client'),
       });
     }
+    // A link can be created for draft/sent; an existing link stays reachable
+    // afterwards to see the client's answer or revoke it.
+    if (item.status === 'draft' || item.status === 'sent' || item.shareToken) {
+      items.push({ label: 'Share by link', action: () => this.openShare(item) });
+    }
     if (item.status === 'sent') {
       items.push({
         label: 'Send reminder',
@@ -667,6 +687,20 @@ export class EstimatesComponent implements OnInit {
       ],
     };
     this.isSendNotifOpen = true;
+  }
+
+  openShare(item: EstimateItem) {
+    this.shareTarget = {
+      id: item._id,
+      title: item.title,
+      clientName: typeof item.clientId === 'string' ? undefined : item.clientId.name,
+    };
+  }
+
+  closeShare(event: { changed: boolean }) {
+    this.shareTarget = null;
+    // Sharing a draft marks it sent: refresh the row's status.
+    if (event.changed) this.load();
   }
 
   closeSendNotif() {

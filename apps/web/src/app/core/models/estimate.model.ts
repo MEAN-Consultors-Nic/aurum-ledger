@@ -29,6 +29,35 @@ export type EstimateItem = {
   shareRevokedAt?: string;
   shareViewCount?: number;
   shareLastViewedAt?: string;
+  shareFailedAttempts?: number;
+  shareLockedAt?: string;
+  clientDecision?: 'accepted' | 'declined';
+  clientDecisionAt?: string;
+  clientDecisionName?: string;
+};
+
+export type EstimateLinkState = 'revoked' | 'locked' | 'responded' | 'expired' | 'closed' | 'open';
+
+/** GET/POST /estimates/:id/share. `pin` only in the POST that creates the link. */
+export type EstimateShareStatus = {
+  status: EstimateItem['status'];
+  shareToken?: string;
+  shareCreatedAt?: string;
+  shareRevokedAt?: string;
+  shareViewCount: number;
+  shareLastViewedAt?: string;
+  shareFailedAttempts: number;
+  shareLockedAt?: string;
+  hasPin: boolean;
+  linkState: EstimateLinkState | null;
+  expiresAt?: string | null;
+  clientDecision?: 'accepted' | 'declined';
+  clientDecisionAt?: string;
+  clientDecisionName?: string;
+  clientDecisionReason?: string;
+  clientDecisionIp?: string;
+  clientDecisionSnapshot?: { title?: string; amount: number; currency: string; billingPeriod: string };
+  pin?: string;
 };
 
 export type EstimateListResponse = {

@@ -1,7 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { EstimateConvertResponse, EstimateItem, EstimateListResponse } from '../models/estimate.model';
+import {
+  EstimateConvertResponse,
+  EstimateItem,
+  EstimateListResponse,
+  EstimateShareStatus,
+} from '../models/estimate.model';
 
 @Injectable({ providedIn: 'root' })
 export class EstimatesApiService {
@@ -69,14 +74,13 @@ export class EstimatesApiService {
     return this.http.post<EstimateConvertResponse>(`${environment.apiUrl}/estimates/${id}/convert`, payload);
   }
 
+  /** Creates a new client link + PIN (the previous one stops working). */
   generateShare(id: string) {
-    return this.http.post<{
-      shareToken: string;
-      shareCreatedAt: string;
-      shareRevokedAt?: string;
-      shareViewCount: number;
-      shareLastViewedAt?: string;
-    }>(`${environment.apiUrl}/estimates/${id}/share`, {});
+    return this.http.post<EstimateShareStatus>(`${environment.apiUrl}/estimates/${id}/share`, {});
+  }
+
+  getShare(id: string) {
+    return this.http.get<EstimateShareStatus>(`${environment.apiUrl}/estimates/${id}/share`);
   }
 
   revokeShare(id: string) {

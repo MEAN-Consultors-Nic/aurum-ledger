@@ -10,7 +10,10 @@ import { EstimatesApiService } from '../../core/services/estimates-api.service';
 import { ServicesApiService } from '../../core/services/services-api.service';
 import { ClientItem } from '../../core/models/client.model';
 import { EstimateItem } from '../../core/models/estimate.model';
-import { SharePanelComponent, SharePanelState } from '../../shared/share-panel/share-panel.component';
+import {
+  EstimateShareDialogComponent,
+  EstimateShareTarget,
+} from '../../shared/estimate-share-dialog/estimate-share-dialog.component';
 import { AttachmentsPanelComponent } from '../../shared/attachments-panel/attachments-panel.component';
 import { ServiceItem } from '../../core/models/service.model';
 import { ActionMenuComponent, ActionMenuItem } from '../../shared/action-menu/action-menu.component';
@@ -31,7 +34,7 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
     RouterLink,
     ActionMenuComponent,
     SendNotificationDialogComponent,
-    SharePanelComponent,
+    EstimateShareDialogComponent,
     AttachmentsPanelComponent,
   ],
   template: `
@@ -254,15 +257,30 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
               ></textarea>
             </div>
 
-            <!-- Client portal share link -->
-            <app-share-panel
-              *ngIf="!isNew"
-              portalPath="/portal/estimates"
-              [state]="shareState"
-              [busy]="isSharing"
-              (generate)="generateShare()"
-              (revoke)="revokeShare()"
-            />
+            <!-- Share by link (PIN protected) -->
+            <section *ngIf="!isNew" class="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex items-center justify-between gap-3 px-5 py-4">
+                <div>
+                  <div class="text-sm font-semibold text-slate-900">Share by link</div>
+                  <div class="text-xs text-slate-500">
+                    <ng-container *ngIf="shareState?.clientDecision; else noDecision">
+                      {{ shareState?.clientDecision === 'accepted' ? 'Accepted' : 'Declined' }} by the client
+                      <ng-container *ngIf="shareState?.clientDecisionName"> ({{ shareState?.clientDecisionName }})</ng-container>
+                    </ng-container>
+                    <ng-template #noDecision>
+                      {{ shareState?.shareToken && !shareState?.shareRevokedAt ? (shareState?.shareLockedAt ? 'Link locked after wrong PINs' : 'Link active · ' + (shareState?.shareViewCount ?? 0) + ' views') : 'A private link your client opens with a PIN to accept or decline.' }}
+                    </ng-template>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  (click)="openShare()"
+                  class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700"
+                >
+                  {{ shareState?.shareToken ? 'Manage link' : 'Share by link' }}
+                </button>
+              </div>
+            </section>
 
             <!-- Attachments -->
             <app-attachments-panel
@@ -357,13 +375,27 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
       [config]="sendNotifConfig"
       (closed)="closeSendDialog()"
     ></app-send-notification-dialog>
+    <app-estimate-share-dialog
+      [open]="!!shareTarget"
+      [target]="shareTarget"
+      (closed)="closeShare($event)"
+    ></app-estimate-share-dialog>
   `,
 })
 export class EstimateEditorComponent implements OnInit {
   estimateId: string | null = null;
   isNew = true;
-  shareState: SharePanelState | null = null;
-  isSharing = false;
+  /** Share fields of the loaded estimate, for the "Share by link" card. */
+  shareState: Pick<
+    EstimateItem,
+    | 'shareToken'
+    | 'shareRevokedAt'
+    | 'shareViewCount'
+    | 'shareLockedAt'
+    | 'clientDecision'
+    | 'clientDecisionName'
+  > | null = null;
+  shareTarget: EstimateShareTarget | null = null;
   isLoading = false;
   isSaving = false;
   loadError = '';
@@ -450,10 +482,11 @@ export class EstimateEditorComponent implements OnInit {
     this.deliverables = [...(item.deliverables ?? [])];
     this.shareState = {
       shareToken: item.shareToken,
-      shareCreatedAt: item.shareCreatedAt,
       shareRevokedAt: item.shareRevokedAt,
       shareViewCount: item.shareViewCount,
-      shareLastViewedAt: item.shareLastViewedAt,
+      shareLockedAt: item.shareLockedAt,
+      clientDecision: item.clientDecision,
+      clientDecisionName: item.clientDecisionName,
     };
     this.form.reset({
       clientId: this.resolveId(item.clientId),
@@ -584,34 +617,35 @@ export class EstimateEditorComponent implements OnInit {
     });
   }
 
-  generateShare() {
+  openShare() {
     if (!this.estimateId) return;
-    this.isSharing = true;
-    this.estimatesApi.generateShare(this.estimateId).subscribe({
-      next: (res) => {
-        this.shareState = res;
-        this.isSharing = false;
-      },
-      error: () => {
-        this.isSharing = false;
-        this.validationError = 'Unable to generate share link';
-      },
-    });
+    const clientId = this.form.value.clientId;
+    this.shareTarget = {
+      id: this.estimateId,
+      title: this.form.value.title || undefined,
+      clientName: this.clients.find((c) => c._id === clientId)?.name,
+    };
   }
 
-  revokeShare() {
-    if (!this.estimateId || !this.shareState?.shareToken) return;
-    this.isSharing = true;
-    this.estimatesApi.revokeShare(this.estimateId).subscribe({
-      next: () => {
-        if (this.shareState) {
-          this.shareState = { ...this.shareState, shareRevokedAt: new Date().toISOString() };
-        }
-        this.isSharing = false;
-      },
-      error: () => {
-        this.isSharing = false;
-        this.validationError = 'Unable to revoke share link';
+  /**
+   * After a link was created or revoked, refresh only the share card and the
+   * status (sharing a draft makes it sent) — never the form, which may hold
+   * unsaved edits.
+   */
+  closeShare(event: { changed: boolean }) {
+    this.shareTarget = null;
+    if (!event.changed || !this.estimateId) return;
+    this.estimatesApi.findById(this.estimateId).subscribe({
+      next: (item) => {
+        this.shareState = {
+          shareToken: item.shareToken,
+          shareRevokedAt: item.shareRevokedAt,
+          shareViewCount: item.shareViewCount,
+          shareLockedAt: item.shareLockedAt,
+          clientDecision: item.clientDecision,
+          clientDecisionName: item.clientDecisionName,
+        };
+        this.form.patchValue({ status: item.status }, { emitEvent: false });
       },
     });
   }

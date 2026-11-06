@@ -15,6 +15,20 @@ export type PublicEstimate = {
   terms: string;
   validUntil?: string | null;
   sentAt?: string | null;
+  /** Link state after the PIN: only 'open' can be answered. */
+  state: PublicEstimateLinkState;
+  canRespond: boolean;
+  expiresAt?: string | null;
+  decision: { decision: 'accepted' | 'declined'; at: string | null; name: string } | null;
+};
+
+export type PublicEstimateLinkState = 'revoked' | 'locked' | 'responded' | 'expired' | 'closed' | 'open';
+
+/** Before the PIN: does the link open at all? */
+export type PublicEstimateGate = {
+  state: PublicEstimateLinkState;
+  requiresPin: boolean;
+  message: string | null;
 };
 
 export type PublicProjectTask = {
@@ -50,8 +64,20 @@ export class PublicApiService {
 
   constructor(private readonly http: HttpClient) {}
 
-  getEstimate(token: string) {
-    return this.http.get<PublicEstimate>(`${this.base}/estimates/${token}`);
+  getEstimateGate(token: string) {
+    return this.http.get<PublicEstimateGate>(`${this.base}/estimates/${token}`);
+  }
+
+  unlockEstimate(token: string, pin: string) {
+    return this.http.post<PublicEstimate>(`${this.base}/estimates/${token}/unlock`, { pin });
+  }
+
+  acceptEstimate(token: string, body: { pin: string; name: string; acceptTerms: boolean }) {
+    return this.http.post<PublicEstimate>(`${this.base}/estimates/${token}/accept`, body);
+  }
+
+  declineEstimate(token: string, body: { pin: string; reason?: string }) {
+    return this.http.post<PublicEstimate>(`${this.base}/estimates/${token}/decline`, body);
   }
 
   getProject(token: string) {
