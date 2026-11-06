@@ -382,7 +382,15 @@ export class NotificationsEngineService implements OnModuleInit {
     projectId?: Types.ObjectId;
     clientId?: Types.ObjectId;
   }) {
-    const existing = await this.logModel.findOne({ dedupeKey: params.dedupeKey });
+    // Logs are written per rule and recipient as `<dedupeKey>::<rule>::<recipient>`,
+    // so an exact match on the bare key never finds them and every hourly run
+    // would send again. Match the prefix (anchored, so the index is used).
+    // Failed sends are not counted: they are retried on the next run.
+    const escaped = params.dedupeKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existing = await this.logModel.findOne({
+      dedupeKey: { $regex: `^${escaped}::` },
+      status: { $in: ['sent', 'skipped'] },
+    });
     if (existing) {
       return { skipped: true, reason: 'dedupe' as const };
     }
