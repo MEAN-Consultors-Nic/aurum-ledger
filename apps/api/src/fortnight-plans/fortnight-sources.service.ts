@@ -63,11 +63,6 @@ type Ref = {
   [key: string]: unknown;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** How far back a still-unpaid occurrence is pulled into the current fortnight as overdue. */
-export const OVERDUE_LOOKBACK_DAYS = 120;
-
 /**
  * The planner never re-implements what loans, recurring expenses,
  * subscriptions and planned incomes already do. This adapter reads their
@@ -105,20 +100,19 @@ export class FortnightSourcesService {
   }
 
   /**
-   * Every occurrence inside the window, every still-unpaid one from the
-   * recent past (it is overdue, so it belongs to the fortnight where it will
-   * finally be paid), and any occurrence the plan already references.
+   * Every occurrence inside the window, plus any occurrence the plan already
+   * references. Unconfirmed occurrences from earlier dates are NOT pulled in:
+   * the source modules are often never confirmed (the money moved, nobody
+   * ticked it), so "unconfirmed" does not mean "still owed". What really is
+   * still owed reaches this fortnight explicitly, carried from the previous
+   * plan when it is closed.
    */
   async fetch(
     period: FortnightPeriod,
     knownIds: Types.ObjectId[],
   ): Promise<SourceOccurrence[]> {
-    const lookbackStart = new Date(
-      period.start.getTime() - OVERDUE_LOOKBACK_DAYS * DAY_MS,
-    );
     const or: Record<string, unknown>[] = [
       { date: { $gte: period.start, $lte: period.end } },
-      { status: 'planned', date: { $gte: lookbackStart, $lt: period.start } },
     ];
     if (knownIds.length > 0) {
       or.push({ _id: { $in: knownIds } });

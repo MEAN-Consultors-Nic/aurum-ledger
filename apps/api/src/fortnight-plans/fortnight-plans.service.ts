@@ -760,7 +760,7 @@ export class FortnightPlansService {
     return this.getDetailFresh(period);
   }
 
-  /** Not this fortnight. A line from another module stays owed and comes back as overdue next time. */
+  /** Not this fortnight. The occurrence stays open in its module; nothing is recorded. */
   async skipLine(periodKey: string, lineId: string, userId?: Types.ObjectId) {
     const plan = await this.requirePlan(periodKey);
     this.assertOpen(plan);
@@ -1519,7 +1519,8 @@ export class FortnightPlansService {
 
   /**
    * Brings the plan in line with its sources:
-   *  - new occurrences in the window (and overdue unpaid ones) become lines;
+   *  - new occurrences in the window become lines; lines due outside it
+   *    that were not carried here (and hold no money) go away;
    *  - lines whose occurrence was confirmed / omitted elsewhere follow it;
    *  - lines whose occurrence vanished (a rebuilt loan schedule) go away;
    *  - applies that died half-way are resolved from what was really recorded.
@@ -1604,6 +1605,17 @@ export class FortnightPlansService {
           pullLine(line, line.status);
         continue;
       }
+      if (
+        (line.status === 'planned' || line.status === 'skipped') &&
+        !line.carriedFromPeriod &&
+        !(occ.date >= period.start && occ.date <= period.end)
+      ) {
+        // Due outside this fortnight and not carried here on purpose: it
+        // belongs to another fortnight (or was pulled in by the old
+        // "unconfirmed = overdue" rule). Applied lines stay — they hold money.
+        pullLine(line, line.status);
+        continue;
+      }
       if (ownedElsewhere.has(key) && line.status !== 'applied') {
         // Another fortnight is handling this payment now.
         continue;
@@ -1668,7 +1680,7 @@ export class FortnightPlansService {
       const key = occ.occurrenceId.toString();
       if (inPlan.has(key) || ownedElsewhere.has(key)) continue;
       const inWindow = occ.date >= period.start && occ.date <= period.end;
-      if (!inWindow && occ.status !== 'planned') continue;
+      if (!inWindow) continue;
       if (occ.status === 'planned' && occ.templateInactive) continue;
 
       ops.push({
