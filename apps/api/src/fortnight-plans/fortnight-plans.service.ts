@@ -82,6 +82,8 @@ const STALE_APPLY_MS = 2 * 60 * 1000;
 const AUTO_SYNC_MS = 60 * 1000;
 
 const LIVE_STATUSES: LineStatus[] = ['planned', 'applying', 'applied'];
+/** Note sync writes when a source occurrence was omitted in its module. */
+const OMITTED_AT_SOURCE = 'Omitted at the source';
 
 function dayString(date?: Date | null): string | null {
   if (!date) return null;
@@ -726,9 +728,37 @@ export class FortnightPlansService {
     if (line.status !== 'applied') {
       throw new BadRequestException('Only applied lines can be undone.');
     }
+    if (line.source === 'loan') {
+      // The loans module owns the balance: it rolls it back and voids the movement.
+      if (!line.sourceOccurrenceId) {
+        throw new BadRequestException('This loan line has no payment to undo.');
+      }
+      await this.claim(plan._id, line._id, 'applied', userId);
+      try {
+        await this.sources.unconfirm(
+          line.source,
+          line.sourceOccurrenceId,
+          userId,
+        );
+      } catch (err) {
+        await this.release(plan._id, line._id, 'applied');
+        throw err;
+      }
+      await this.planModel.updateOne(
+        {
+          _id: plan._id,
+          lines: { $elemMatch: { _id: line._id, status: 'applying' } },
+        },
+        {
+          $set: { 'lines.$.status': 'planned', 'lines.$.updatedBy': userId },
+          $unset: this.appliedFieldsUnset(),
+        },
+      );
+      return this.getDetailFresh(period);
+    }
     if (line.source !== 'manual') {
       throw new BadRequestException(
-        `This payment was recorded through ${this.sourceLabel(line.source)}, which keeps its own balance. It cannot be undone from the planner.`,
+        `This payment was recorded through ${this.sourceLabel(line.source)}. Undo it there.`,
       );
     }
 
@@ -794,6 +824,21 @@ export class FortnightPlansService {
     const plan = await this.requirePlan(periodKey);
     this.assertOpen(plan);
     const line = this.requireLine(plan, lineId);
+    if (line.status !== 'skipped') {
+      throw new BadRequestException(
+        'Only lines left out can be included again.',
+      );
+    }
+    // Left out because it was omitted in its module: including it again means
+    // putting it back there too, otherwise it could never be applied and the
+    // next sync would leave it out again.
+    if (line.source !== 'manual' && line.sourceOccurrenceId) {
+      await this.sources.reactivateIfOmitted(
+        line.source,
+        line.sourceOccurrenceId,
+        userId,
+      );
+    }
     await this.transition(
       plan._id,
       line._id,
@@ -801,6 +846,15 @@ export class FortnightPlansService {
       { status: 'planned' },
       userId,
     );
+    if (line.note === OMITTED_AT_SOURCE) {
+      await this.planModel.updateOne(
+        {
+          _id: plan._id,
+          lines: { $elemMatch: { _id: line._id, note: OMITTED_AT_SOURCE } },
+        },
+        { $unset: { 'lines.$.note': '' } },
+      );
+    }
     return this.getDetailFresh(this.period(periodKey));
   }
 
@@ -832,7 +886,7 @@ export class FortnightPlansService {
       {
         $set: {
           'lines.$.status': 'skipped',
-          'lines.$.note': line.note || 'Omitted at the source',
+          'lines.$.note': line.note || OMITTED_AT_SOURCE,
           'lines.$.updatedBy': userId,
         },
       },
@@ -1645,7 +1699,7 @@ export class FortnightPlansService {
             line.status,
             {
               'lines.$.status': 'skipped',
-              'lines.$.note': line.note || 'Omitted at the source',
+              'lines.$.note': line.note || OMITTED_AT_SOURCE,
             },
             { 'lines.$.applyStartedAt': '' },
           );
@@ -1810,7 +1864,7 @@ export class FortnightPlansService {
       return {
         ...base,
         status: 'skipped' as LineStatus,
-        note: 'Omitted at the source',
+        note: OMITTED_AT_SOURCE,
       };
     }
     return base;
@@ -2064,7 +2118,9 @@ export class FortnightPlansService {
             ? (categories.get(line.categoryId.toString()) ?? null)
             : null,
           overdue: open && !!line.dueDate && new Date(line.dueDate) < today,
-          canUndo: line.status === 'applied' && line.source === 'manual',
+          canUndo:
+            line.status === 'applied' &&
+            (line.source === 'manual' || line.source === 'loan'),
         };
       });
 

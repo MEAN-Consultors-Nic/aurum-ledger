@@ -334,6 +334,123 @@ export class LoansService {
     return occurrence;
   }
 
+  /**
+   * Undoes a confirmed payment: voids its transaction and puts the loan back
+   * exactly as it was before (balance, totals, interest). Only the latest
+   * settled payment can be undone, the same rule as reactivating an omission.
+   */
+  async unconfirmOccurrence(id: string, userId?: Types.ObjectId) {
+    const occurrence = await this.occurrenceModel.findById(id);
+    if (!occurrence) {
+      throw new NotFoundException('Loan payment occurrence not found');
+    }
+    if (occurrence.status !== 'confirmed') {
+      throw new BadRequestException('Only confirmed payments can be undone');
+    }
+
+    const loan = await this.loanModel.findById(occurrence.loanId);
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    const laterSettled = await this.occurrenceModel.countDocuments({
+      loanId: loan._id,
+      date: { $gt: occurrence.date },
+      status: { $in: ['confirmed', 'omitted'] },
+    });
+    if (laterSettled > 0) {
+      throw new BadRequestException(
+        'A later payment has already been settled on this loan, so this one can no longer be undone. Undo the newer payments first.',
+      );
+    }
+
+    // Claim it first, so two undos cannot both roll the balance back.
+    const transactionId = occurrence.confirmedTransactionId;
+    const claimed = await this.occurrenceModel.updateOne(
+      {
+        _id: occurrence._id,
+        status: 'confirmed',
+        confirmedTransactionId: transactionId,
+      },
+      { $set: { status: 'planned', updatedBy: userId } },
+    );
+    if (claimed.modifiedCount === 0) {
+      throw new BadRequestException('This payment is already being undone');
+    }
+
+    loan.currentBalance = money(occurrence.balanceBefore);
+    loan.interestPaidTotal = money(
+      Math.max(0, loan.interestPaidTotal - (occurrence.interestPaid ?? 0)),
+    );
+    loan.principalPaidTotal = money(
+      Math.max(0, loan.principalPaidTotal - (occurrence.principalPaid ?? 0)),
+    );
+    loan.capitalizedInterest = money(
+      Math.max(
+        0,
+        loan.capitalizedInterest - (occurrence.interestCapitalized ?? 0),
+      ),
+    );
+    if (loan.status === 'settled') {
+      // This payment is what settled it.
+      loan.status = 'active';
+      loan.isActive = true;
+      loan.settledAt = undefined;
+    }
+    loan.updatedBy = userId;
+    await loan.save();
+
+    if (loan.kind === 'interest_bearing') {
+      // The next payment was sized on the balance this one left; it is
+      // generated again once this one is settled.
+      await this.occurrenceModel.deleteMany({
+        loanId: loan._id,
+        status: 'planned',
+        date: { $gt: occurrence.date },
+      });
+    }
+
+    const interestDue =
+      loan.kind === 'interest_bearing'
+        ? this.interestFor(loan, loan.currentBalance)
+        : 0;
+    await this.occurrenceModel.updateOne(
+      { _id: occurrence._id },
+      {
+        $set: {
+          amount:
+            loan.kind === 'interest_bearing' ? interestDue : occurrence.amount,
+          interestDue,
+          balanceBefore: money(loan.currentBalance),
+          balanceAfter: 0,
+          interestPaid: 0,
+          principalPaid: 0,
+          interestCapitalized: 0,
+        },
+        $unset: {
+          paidAmount: '',
+          accountCurrency: '',
+          accountAmount: '',
+          exchangeRate: '',
+          note: '',
+          confirmedTransactionId: '',
+        },
+      },
+    );
+
+    if (transactionId) {
+      const tx = await this.transactionsService
+        .findById(transactionId.toString())
+        .catch(() => null);
+      if (tx && !tx.voidedAt) {
+        await this.transactionsService.void(transactionId.toString(), userId);
+      }
+    }
+
+    await this.afterBalanceChange(loan);
+    return this.occurrenceModel.findById(occurrence._id);
+  }
+
   async reactivateOccurrence(id: string, userId?: Types.ObjectId) {
     const occurrence = await this.occurrenceModel.findById(id);
     if (!occurrence) {

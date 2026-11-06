@@ -247,7 +247,8 @@ const SECTIONS: Array<{ kind: PlanLineKind; title: string; hint: string }> = [
                   <span *ngIf="l.categoryName"> · {{ l.categoryName }}</span>
                   <span *ngIf="l.meta?.loanBalance !== undefined && l.source === 'loan'"> · balance {{ fmt(l.meta!.loanBalance!, l.currency) }}</span>
                   <span *ngIf="l.appliedDay"> · done {{ dayLabel(l.appliedDay) }}</span>
-                  <span *ngIf="l.note" class="italic"> · {{ l.note }}</span>
+                  <span *ngIf="l.status === 'applied' && l.source !== 'manual'"> · recorded in {{ sourceBadge(l).label }}</span>
+                  <span *ngIf="l.note" class="italic"> · {{ l.note === 'Omitted at the source' ? 'Omitted in ' + sourceBadge(l).label + ' — Restore puts it back' : l.note }}</span>
                 </div>
               </div>
 
@@ -909,8 +910,30 @@ export class FortnightPlannerComponent implements OnInit, OnDestroy {
     if (l.source === 'manual' && (planned || l.status === 'skipped')) {
       items.push({ label: 'Remove', action: () => this.removeLine(l), danger: true });
     }
+    if (l.source !== 'manual' && l.status === 'applied') {
+      // Paid through its own module (amortisation, FX): it is corrected there.
+      items.push({ label: `Open in ${this.sourceBadge(l).label}`, action: () => this.router.navigate([this.sourceRoute(l)]) });
+    }
+    if (l.transactionId && l.status === 'applied') {
+      items.push({ label: 'See in Transactions', action: () => this.router.navigate(['/transactions']) });
+    }
     if (items.length === 0) items.push({ label: 'No actions', action: () => undefined, disabled: true });
     return items;
+  }
+
+  private sourceRoute(l: PlanLine) {
+    switch (l.source) {
+      case 'loan':
+        return '/loans';
+      case 'recurring_expense':
+        return '/recurring-expenses';
+      case 'subscription':
+        return '/subscriptions';
+      case 'planned_income':
+        return '/planned-income';
+      default:
+        return '/transactions';
+    }
   }
 
   act(action: 'skip' | 'restore' | 'carry', l: PlanLine) {
@@ -927,7 +950,7 @@ export class FortnightPlannerComponent implements OnInit, OnDestroy {
     return async () => {
       const ok = await this.confirmDialog.open({
         title: 'Undo',
-        message: `Void the movement of "${l.name}" (${this.fmt(l.appliedAmount ?? l.plannedAmount, l.currency)}) and put it back as pending?`,
+        message: `Void the movement of "${l.name}" (${this.fmt(l.appliedAmount ?? l.plannedAmount, l.currency)}) and put it back as pending?${l.source === 'loan' ? ' The loan balance goes back to what it was before this payment.' : ''}`,
         confirmText: 'Undo',
         danger: true,
       });

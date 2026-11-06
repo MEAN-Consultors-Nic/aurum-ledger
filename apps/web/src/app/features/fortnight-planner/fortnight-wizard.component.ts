@@ -253,8 +253,8 @@ const GROUPS: Array<{ key: GroupKey; title: string; hint: string }> = [
             <span class="font-medium" [ngClass]="l.status === 'skipped' ? 'text-slate-400 line-through' : 'text-slate-900'">{{ l.name }}</span>
             <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase" [ngClass]="badge(l).cls">{{ badge(l).label }}</span>
             <span *ngIf="l.carriedFromPeriod" class="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Carried over</span>
-            <span *ngIf="!editable(l)" class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">{{ l.kind === 'income' ? 'Received' : 'Paid' }}</span>
-            <span *ngIf="l.status === 'skipped'" class="text-[10px] font-semibold uppercase text-slate-400">Left out</span>
+            <span *ngIf="!editable(l)" class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">{{ l.kind === 'income' ? 'Received' : 'Paid' }}{{ l.source !== 'manual' ? ' in ' + badge(l).label : '' }}</span>
+            <span *ngIf="l.status === 'skipped'" class="text-[10px] font-semibold uppercase text-slate-400">{{ l.note === 'Omitted at the source' ? 'Omitted in ' + badge(l).label + ' · tick to put it back' : 'Left out' }}</span>
           </div>
           <div class="mt-0.5 text-xs text-slate-500">
             <span *ngIf="l.dueDay">Due {{ dayLabel(l.dueDay) }}</span>

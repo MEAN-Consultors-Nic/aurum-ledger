@@ -328,6 +328,60 @@ export class FortnightSourcesService {
     }
   }
 
+  /**
+   * Puts an occurrence that was omitted in its own module back to planned, so
+   * the planner can include it again. A no-op when it is not omitted. The
+   * module applies its own rules (a loan refuses when later payments exist).
+   */
+  async reactivateIfOmitted(
+    source: ExternalSource,
+    occurrenceId: Types.ObjectId,
+    userId?: Types.ObjectId,
+  ): Promise<boolean> {
+    const id = occurrenceId.toString();
+    const model = {
+      loan: this.loanOccurrenceModel,
+      recurring_expense: this.recurringOccurrenceModel,
+      subscription: this.subscriptionOccurrenceModel,
+      planned_income: this.incomeOccurrenceModel,
+    }[source] as unknown as Model<{ status: string }> | undefined;
+    if (!model) {
+      throw new BadRequestException(`Unknown source "${String(source)}"`);
+    }
+    const occ = await model.findById(id, { status: 1 }).lean();
+    if (!occ || occ.status !== 'omitted') return false;
+    switch (source) {
+      case 'loan':
+        await this.loansService.reactivateOccurrence(id, userId);
+        break;
+      case 'recurring_expense':
+        await this.recurringExpensesService.reactivateOccurrence(id, userId);
+        break;
+      case 'subscription':
+        await this.subscriptionsService.reactivateOccurrence(id, userId);
+        break;
+      case 'planned_income':
+        await this.plannedIncomesService.reactivateOccurrence(id, userId);
+        break;
+    }
+    return true;
+  }
+
+  /** Undoes a confirmed payment in its own module. Only loans support it. */
+  async unconfirm(
+    source: ExternalSource,
+    occurrenceId: Types.ObjectId,
+    userId?: Types.ObjectId,
+  ) {
+    if (source !== 'loan') {
+      throw new BadRequestException('Only loan payments can be undone here.');
+    }
+    return this.loansService.unconfirmOccurrence(
+      occurrenceId.toString(),
+      userId,
+    );
+  }
+
   /** Marks the occurrence as not happening, in its own module. */
   async omit(
     source: ExternalSource,

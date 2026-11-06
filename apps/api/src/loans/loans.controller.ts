@@ -55,6 +55,15 @@ export class LoansController {
     return this.loansService.reactivateOccurrence(id, user?._id);
   }
 
+  /** Undoes a confirmed payment and restores the balance it changed. */
+  @Post('occurrences/:id/unconfirm')
+  unconfirmOccurrence(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.loansService.unconfirmOccurrence(id, user?._id);
+  }
+
   @Get('alerts')
   getAlerts(@Query() query: LoanOccurrenceQueryDto) {
     return this.loansService.getAlerts(query.month);
