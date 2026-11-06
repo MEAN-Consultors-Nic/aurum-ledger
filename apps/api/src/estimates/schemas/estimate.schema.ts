@@ -90,6 +90,59 @@ export class Estimate {
 
   @Prop()
   shareLastViewedAt?: Date;
+
+  /**
+   * Salted scrypt hash of the link's 6-digit PIN (see share-link.ts). Never
+   * selected by default and never returned: a 6-digit PIN is trivial to
+   * brute-force from its hash.
+   */
+  @Prop({ select: false })
+  sharePinHash?: string;
+
+  /** Wrong PINs on the current link; MAX_PIN_ATTEMPTS locks it. */
+  @Prop({ default: 0 })
+  shareFailedAttempts: number;
+
+  /** Set when the link was locked by wrong PINs; only a new link reopens it. */
+  @Prop()
+  shareLockedAt?: Date;
+
+  // ----- The client's answer through the link -----
+  @Prop({ enum: ['accepted', 'declined'] })
+  clientDecision?: 'accepted' | 'declined';
+
+  @Prop()
+  clientDecisionAt?: Date;
+
+  /** Accept: the full name the client typed as signature. */
+  @Prop()
+  clientDecisionName?: string;
+
+  /** Decline: the optional reason the client gave. */
+  @Prop()
+  clientDecisionReason?: string;
+
+  @Prop()
+  clientDecisionIp?: string;
+
+  @Prop()
+  clientDecisionUserAgent?: string;
+
+  /** Accept: the client ticked "I accept the terms". */
+  @Prop()
+  clientAcceptedTerms?: boolean;
+
+  /**
+   * What the client saw when they answered (title, amount, currency,
+   * billing period), so the record holds even if the estimate is edited later.
+   */
+  @Prop({ type: Object })
+  clientDecisionSnapshot?: {
+    title?: string;
+    amount: number;
+    currency: string;
+    billingPeriod: string;
+  };
 }
 
 export const EstimateSchema = SchemaFactory.createForClass(Estimate);

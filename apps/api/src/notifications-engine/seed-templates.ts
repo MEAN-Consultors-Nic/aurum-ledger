@@ -192,6 +192,40 @@ export const SEED_TEMPLATES: SeedTemplate[] = [
 <p>Decide whether to renew, replace, or cancel formally.</p>`,
   },
   {
+    key: 'estimate-client-accepted',
+    group: 'estimates',
+    name: 'Client accepted estimate',
+    description: 'Tells you a client accepted a proposal through its link.',
+    eventKey: 'estimate.client_accepted',
+    subject: '{{client.name}} accepted "{{estimate.title}}"',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;color:#047857;">Proposal accepted</h2>
+<p><strong>{{client.name}}</strong> accepted <strong>{{estimate.title}}</strong> — {{money estimate.amount estimate.currency}}.</p>
+<p>Signed as <strong>{{decision.name}}</strong> on {{date decision.at}} (IP {{decision.ip}}).</p>
+<p>Next step: convert it to a contract in Helm.</p>`,
+  },
+  {
+    key: 'estimate-client-declined',
+    group: 'estimates',
+    name: 'Client declined estimate',
+    description: 'Tells you a client declined a proposal through its link.',
+    eventKey: 'estimate.client_declined',
+    subject: '{{client.name}} declined "{{estimate.title}}"',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;color:#be123c;">Proposal declined</h2>
+<p><strong>{{client.name}}</strong> declined <strong>{{estimate.title}}</strong> — {{money estimate.amount estimate.currency}}.</p>
+{{#if decision.reason}}<p>Reason: <em>{{decision.reason}}</em></p>{{else}}<p>No reason given.</p>{{/if}}`,
+  },
+  {
+    key: 'estimate-share-locked',
+    group: 'estimates',
+    name: 'Estimate link locked',
+    description: 'A proposal link was locked after too many wrong PINs.',
+    eventKey: 'estimate.share_locked',
+    subject: 'Link locked: "{{estimate.title}}" ({{client.name}})',
+    bodyHtml: `<h2 style="margin:0 0 12px 0;font-size:18px;color:#b45309;">Proposal link locked</h2>
+<p>The link for <strong>{{estimate.title}}</strong> ({{client.name}}) was locked after too many wrong PINs.</p>
+<p>If it was your client, create a new link from the estimate and send them the new PIN. If not, nothing else is needed: the locked link no longer opens.</p>`,
+  },
+  {
     key: 'fortnight-plan-missing',
     group: 'cashflow',
     name: 'Plan your fortnight',
@@ -240,6 +274,24 @@ export type SeedRule = {
 };
 
 export const SEED_RULES: SeedRule[] = [
+  {
+    name: 'Client accepted estimate',
+    eventKey: 'estimate.client_accepted',
+    templateName: 'Client accepted estimate',
+    recipients: ['admin'],
+  },
+  {
+    name: 'Client declined estimate',
+    eventKey: 'estimate.client_declined',
+    templateName: 'Client declined estimate',
+    recipients: ['admin'],
+  },
+  {
+    name: 'Estimate link locked',
+    eventKey: 'estimate.share_locked',
+    templateName: 'Estimate link locked',
+    recipients: ['admin'],
+  },
   {
     name: 'Plan your fortnight',
     eventKey: 'fortnight.plan_missing',

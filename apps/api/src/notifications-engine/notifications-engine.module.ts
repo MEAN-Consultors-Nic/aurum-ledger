@@ -54,5 +54,6 @@ import { TemplateRendererService } from './template-renderer.service';
     NotificationsEngineService,
     NotificationsSchedulerService,
   ],
+  exports: [NotificationsEngineService],
 })
 export class NotificationsEngineModule {}

@@ -8,6 +8,14 @@ import { CreateEstimateDto } from './dto/create-estimate.dto';
 import { FilterEstimateDto } from './dto/filter-estimate.dto';
 import { UpdateEstimateDto } from './dto/update-estimate.dto';
 import { Estimate, EstimateDocument } from './schemas/estimate.schema';
+import {
+  MAX_PIN_ATTEMPTS,
+  canShareStatus,
+  generatePin,
+  hashPin,
+  linkExpiresAt,
+  shareLinkState,
+} from './share-link';
 
 @Injectable()
 export class EstimatesService {
@@ -191,6 +199,13 @@ export class EstimatesService {
   // Client-portal share link
   // ------------------------------------------------------------
 
+  /**
+   * Creates the estimate's client link and its PIN. Any previous link and
+   * PIN stop working, wrong-PIN attempts reset, and a previous client answer
+   * is kept on the estimate (it is history) but the new link starts fresh.
+   * The PIN is returned ONLY here; Helm keeps just its hash.
+   * Sharing a draft marks it as sent.
+   */
   async generateShareToken(id: string, userId?: Types.ObjectId) {
     const estimate = await this.estimateModel.findOne({
       _id: id,
@@ -199,20 +214,71 @@ export class EstimatesService {
     if (!estimate) {
       throw new NotFoundException('Estimate not found');
     }
+    if (!canShareStatus(estimate.status)) {
+      throw new BadRequestException(
+        `A client link can only be created for draft or sent estimates (this one is ${estimate.status}).`,
+      );
+    }
+    const pin = generatePin();
+    const now = new Date();
     estimate.shareToken = randomBytes(32).toString('base64url');
-    estimate.shareCreatedAt = new Date();
+    estimate.sharePinHash = hashPin(pin);
+    estimate.shareCreatedAt = now;
     estimate.shareCreatedBy = userId;
     estimate.shareRevokedAt = undefined;
     estimate.shareViewCount = 0;
     estimate.shareLastViewedAt = undefined;
+    estimate.shareFailedAttempts = 0;
+    estimate.shareLockedAt = undefined;
+    estimate.clientDecision = undefined;
+    estimate.clientDecisionAt = undefined;
+    estimate.clientDecisionName = undefined;
+    estimate.clientDecisionReason = undefined;
+    estimate.clientDecisionIp = undefined;
+    estimate.clientDecisionUserAgent = undefined;
+    estimate.clientAcceptedTerms = undefined;
+    estimate.clientDecisionSnapshot = undefined;
+    if (estimate.status === 'draft') {
+      estimate.status = 'sent';
+      estimate.sentAt = now;
+      estimate.sentBy = userId;
+    }
     estimate.updatedBy = userId;
     await estimate.save();
+    return { ...this.shareSummary(estimate), pin };
+  }
+
+  /** The link's state for the Helm user (never the PIN or its hash). */
+  async getShareStatus(id: string) {
+    const estimate = await this.estimateModel
+      .findOne({ _id: id, deletedAt: { $exists: false } })
+      .select('+sharePinHash');
+    if (!estimate) {
+      throw new NotFoundException('Estimate not found');
+    }
+    return this.shareSummary(estimate);
+  }
+
+  private shareSummary(e: EstimateDocument) {
     return {
-      shareToken: estimate.shareToken,
-      shareCreatedAt: estimate.shareCreatedAt,
-      shareRevokedAt: estimate.shareRevokedAt,
-      shareViewCount: estimate.shareViewCount,
-      shareLastViewedAt: estimate.shareLastViewedAt,
+      status: e.status,
+      shareToken: e.shareToken,
+      shareCreatedAt: e.shareCreatedAt,
+      shareRevokedAt: e.shareRevokedAt,
+      shareViewCount: e.shareViewCount ?? 0,
+      shareLastViewedAt: e.shareLastViewedAt,
+      shareFailedAttempts: e.shareFailedAttempts ?? 0,
+      shareLockedAt: e.shareLockedAt,
+      // Links made before PINs existed have no hash and cannot be opened.
+      hasPin: !!e.sharePinHash,
+      linkState: e.shareToken ? shareLinkState(e) : null,
+      expiresAt: linkExpiresAt(e.validUntil),
+      clientDecision: e.clientDecision,
+      clientDecisionAt: e.clientDecisionAt,
+      clientDecisionName: e.clientDecisionName,
+      clientDecisionReason: e.clientDecisionReason,
+      clientDecisionIp: e.clientDecisionIp,
+      clientDecisionSnapshot: e.clientDecisionSnapshot,
     };
   }
 
@@ -230,25 +296,114 @@ export class EstimatesService {
     return { revoked: true };
   }
 
+  /**
+   * The estimate behind a public link, with its PIN hash, WITHOUT counting a
+   * view. 404 for unknown or deleted links; revoked/locked/expired links are
+   * found so the page can say why they do not open.
+   */
   async findByShareToken(token: string) {
+    if (!token || token.length > 100) {
+      throw new NotFoundException('This link is no longer valid');
+    }
     const estimate = await this.estimateModel
-      .findOneAndUpdate(
-        {
-          shareToken: token,
-          shareRevokedAt: { $exists: false },
-          deletedAt: { $exists: false },
-        },
-        {
-          $inc: { shareViewCount: 1 },
-          $set: { shareLastViewedAt: new Date() },
-        },
-        { new: true },
-      )
+      .findOne({ shareToken: token, deletedAt: { $exists: false } })
+      .select('+sharePinHash')
       .populate('clientId', 'name email')
       .populate('serviceId', 'name');
     if (!estimate) {
       throw new NotFoundException('This link is no longer valid');
     }
     return estimate;
+  }
+
+  /**
+   * Counts one wrong PIN. Returns the attempts left, and `lockedNow` exactly
+   * once — when this attempt is the one that locks the link (conditional
+   * update, so concurrent guesses cannot lock it twice or skip the lock).
+   */
+  async recordWrongPin(estimateId: Types.ObjectId, token: string) {
+    const updated = await this.estimateModel.findOneAndUpdate(
+      { _id: estimateId, shareToken: token, shareLockedAt: { $exists: false } },
+      { $inc: { shareFailedAttempts: 1 } },
+      { new: true },
+    );
+    const attempts = updated?.shareFailedAttempts ?? MAX_PIN_ATTEMPTS;
+    let lockedNow = false;
+    if (attempts >= MAX_PIN_ATTEMPTS) {
+      const lock = await this.estimateModel.updateOne(
+        {
+          _id: estimateId,
+          shareToken: token,
+          shareLockedAt: { $exists: false },
+        },
+        { $set: { shareLockedAt: new Date() } },
+      );
+      lockedNow = lock.modifiedCount === 1;
+    }
+    return {
+      attemptsLeft: Math.max(0, MAX_PIN_ATTEMPTS - attempts),
+      lockedNow,
+    };
+  }
+
+  /** A correct PIN opened the link: count the view, forget earlier misses. */
+  async recordView(estimateId: Types.ObjectId, token: string) {
+    await this.estimateModel.updateOne(
+      { _id: estimateId, shareToken: token },
+      {
+        $inc: { shareViewCount: 1 },
+        $set: { shareLastViewedAt: new Date(), shareFailedAttempts: 0 },
+      },
+    );
+  }
+
+  /**
+   * Records the client's answer. Atomic: it only applies while the link is
+   * still the same, not revoked or locked, the estimate is still draft/sent
+   * and nobody answered yet — so a double click or a race answers once.
+   */
+  async recordClientDecision(
+    estimate: EstimateDocument,
+    token: string,
+    answer: {
+      decision: 'accepted' | 'declined';
+      name?: string;
+      reason?: string;
+      acceptedTerms?: boolean;
+      ip: string;
+      userAgent: string;
+    },
+  ) {
+    const now = new Date();
+    const result = await this.estimateModel.updateOne(
+      {
+        _id: estimate._id,
+        shareToken: token,
+        shareRevokedAt: { $exists: false },
+        shareLockedAt: { $exists: false },
+        clientDecision: { $exists: false },
+        status: { $in: ['draft', 'sent'] },
+        deletedAt: { $exists: false },
+      },
+      {
+        $set: {
+          status: answer.decision === 'accepted' ? 'accepted' : 'rejected',
+          clientDecision: answer.decision,
+          clientDecisionAt: now,
+          ...(answer.name ? { clientDecisionName: answer.name } : {}),
+          ...(answer.reason ? { clientDecisionReason: answer.reason } : {}),
+          ...(answer.acceptedTerms ? { clientAcceptedTerms: true } : {}),
+          clientDecisionIp: answer.ip,
+          clientDecisionUserAgent: answer.userAgent.slice(0, 300),
+          clientDecisionSnapshot: {
+            title: estimate.title,
+            amount: estimate.amount,
+            currency: estimate.currency,
+            billingPeriod: estimate.billingPeriod,
+          },
+        },
+      },
+    );
+    return result.modifiedCount === 1 ? now : null;
   }
 }

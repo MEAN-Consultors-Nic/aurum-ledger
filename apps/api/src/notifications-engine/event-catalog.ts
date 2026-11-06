@@ -217,6 +217,83 @@ export const EVENT_CATALOG: EventDefinition[] = [
     defaultRecipients: ['admin'],
   },
   {
+    key: 'estimate.client_accepted',
+    label: 'Client accepted an estimate (link)',
+    description:
+      'The client accepted a proposal through its PIN-protected link.',
+    category: 'estimate',
+    placeholders: [
+      ...baseClientPlaceholders,
+      { path: 'estimate.title', description: 'Estimate title' },
+      { path: 'estimate.amount', description: 'Estimate amount' },
+      { path: 'estimate.currency', description: 'Currency' },
+      {
+        path: 'estimate.billingPeriod',
+        description: 'monthly / annual / one_time',
+      },
+      {
+        path: 'estimate.id',
+        description: 'Estimate id (for a link into Helm)',
+      },
+      {
+        path: 'decision.name',
+        description: 'Full name the client signed with',
+      },
+      { path: 'decision.at', description: 'When (ISO date-time)' },
+      { path: 'decision.ip', description: 'IP address it came from' },
+    ],
+    defaultRecipients: ['admin'],
+  },
+  {
+    key: 'estimate.client_declined',
+    label: 'Client declined an estimate (link)',
+    description:
+      'The client declined a proposal through its PIN-protected link.',
+    category: 'estimate',
+    placeholders: [
+      ...baseClientPlaceholders,
+      { path: 'estimate.title', description: 'Estimate title' },
+      { path: 'estimate.amount', description: 'Estimate amount' },
+      { path: 'estimate.currency', description: 'Currency' },
+      {
+        path: 'estimate.billingPeriod',
+        description: 'monthly / annual / one_time',
+      },
+      {
+        path: 'estimate.id',
+        description: 'Estimate id (for a link into Helm)',
+      },
+      {
+        path: 'decision.reason',
+        description: 'Reason the client gave (optional)',
+      },
+      { path: 'decision.at', description: 'When (ISO date-time)' },
+    ],
+    defaultRecipients: ['admin'],
+  },
+  {
+    key: 'estimate.share_locked',
+    label: 'Estimate link locked (wrong PINs)',
+    description:
+      'A proposal link was locked after too many wrong PINs. Create a new link to reopen it.',
+    category: 'estimate',
+    placeholders: [
+      ...baseClientPlaceholders,
+      { path: 'estimate.title', description: 'Estimate title' },
+      { path: 'estimate.amount', description: 'Estimate amount' },
+      { path: 'estimate.currency', description: 'Currency' },
+      {
+        path: 'estimate.billingPeriod',
+        description: 'monthly / annual / one_time',
+      },
+      {
+        path: 'estimate.id',
+        description: 'Estimate id (for a link into Helm)',
+      },
+    ],
+    defaultRecipients: ['admin'],
+  },
+  {
     key: 'fortnight.plan_missing',
     label: 'Fortnight not planned',
     description:

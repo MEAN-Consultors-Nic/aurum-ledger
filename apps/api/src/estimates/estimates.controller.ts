@@ -54,6 +54,12 @@ export class EstimatesController {
     return this.estimatesService.convertToContract(id, dto, user?._id);
   }
 
+  @Get(':id/share')
+  shareStatus(@Param('id') id: string) {
+    return this.estimatesService.getShareStatus(id);
+  }
+
+  /** Creates the client link + PIN. The PIN is in this response only. */
   @Post(':id/share')
   generateShare(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.estimatesService.generateShareToken(id, user?._id);
