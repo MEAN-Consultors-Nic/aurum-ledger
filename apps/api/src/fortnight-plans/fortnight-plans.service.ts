@@ -810,7 +810,7 @@ export class FortnightPlansService {
       plan._id,
       line._id,
       'planned',
-      { status: 'skipped' },
+      { status: 'skipped', includedByUser: false },
       userId,
     );
     return this.getDetailFresh(this.period(periodKey));
@@ -829,24 +829,33 @@ export class FortnightPlansService {
         'Only lines left out can be included again.',
       );
     }
-    // Left out because it was omitted in its module: including it again means
-    // putting it back there too, otherwise it could never be applied and the
-    // next sync would leave it out again.
+    // Including it is a planning decision and never blocked by the module.
+    // Try to put the occurrence back there now; if the module refuses (e.g.
+    // an interest-bearing loan with later payments settled), the line still
+    // stays in the plan and the reactivation is retried when it is applied.
+    let reactivationPending = false;
     if (line.source !== 'manual' && line.sourceOccurrenceId) {
-      await this.sources.reactivateIfOmitted(
-        line.source,
-        line.sourceOccurrenceId,
-        userId,
-      );
+      try {
+        await this.sources.reactivateIfOmitted(
+          line.source,
+          line.sourceOccurrenceId,
+          userId,
+        );
+      } catch (err) {
+        reactivationPending = true;
+        this.logger.warn(
+          `Line ${line._id.toString()} included while its occurrence stays omitted: ${(err as Error).message}`,
+        );
+      }
     }
     await this.transition(
       plan._id,
       line._id,
       'skipped',
-      { status: 'planned' },
+      { status: 'planned', includedByUser: true },
       userId,
     );
-    if (line.note === OMITTED_AT_SOURCE) {
+    if (line.note === OMITTED_AT_SOURCE && !reactivationPending) {
       await this.planModel.updateOne(
         {
           _id: plan._id,
@@ -1311,13 +1320,17 @@ export class FortnightPlansService {
         accountId: undefined as Types.ObjectId | undefined,
         categoryId: undefined as Types.ObjectId | undefined,
         toAccountId: undefined as Types.ObjectId | undefined,
-        run: async () =>
-          this.sources.confirm(
+        run: async () => {
+          // Planned in the fortnight while still omitted in its module: put it
+          // back there first, the module decides whether that is possible.
+          await this.sources.reactivateIfOmitted(source, occurrenceId, userId);
+          return this.sources.confirm(
             source,
             occurrenceId,
             { amount: input.amount, date: input.date, note: input.note },
             userId,
-          ),
+          );
+        },
       };
     }
 
@@ -1693,7 +1706,8 @@ export class FortnightPlansService {
           });
         }
       } else if (occ.status === 'omitted') {
-        if (line.status === 'planned' || stale) {
+        // Omitted in its module, but the user chose to plan it here: keep it.
+        if ((line.status === 'planned' && !line.includedByUser) || stale) {
           setLine(
             line,
             line.status,

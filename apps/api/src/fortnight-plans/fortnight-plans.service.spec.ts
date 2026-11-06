@@ -67,6 +67,7 @@ describe('FortnightPlansService — apply', () => {
       ),
     };
     sources = {
+      reactivateIfOmitted: jest.fn().mockResolvedValue(false),
       confirm: jest
         .fn()
         .mockResolvedValue({ transactionId: new Types.ObjectId() }),

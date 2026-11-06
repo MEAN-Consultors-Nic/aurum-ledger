@@ -248,7 +248,7 @@ const SECTIONS: Array<{ kind: PlanLineKind; title: string; hint: string }> = [
                   <span *ngIf="l.meta?.loanBalance !== undefined && l.source === 'loan'"> · balance {{ fmt(l.meta!.loanBalance!, l.currency) }}</span>
                   <span *ngIf="l.appliedDay"> · done {{ dayLabel(l.appliedDay) }}</span>
                   <span *ngIf="l.status === 'applied' && l.source !== 'manual'"> · recorded in {{ sourceBadge(l).label }}</span>
-                  <span *ngIf="l.note" class="italic"> · {{ l.note === 'Omitted at the source' ? 'Omitted in ' + sourceBadge(l).label + ' — Restore puts it back' : l.note }}</span>
+                  <span *ngIf="l.note" class="italic"> · {{ l.note === 'Omitted at the source' ? (l.status === 'planned' ? 'Still omitted in ' + sourceBadge(l).label + ' — put back when you apply it' : 'Omitted in ' + sourceBadge(l).label + ' — Restore puts it back') : l.note }}</span>
                 </div>
               </div>
 

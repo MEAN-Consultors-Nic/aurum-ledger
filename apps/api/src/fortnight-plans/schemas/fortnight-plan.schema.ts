@@ -116,6 +116,10 @@ export class FortnightPlanLine {
   @Prop({ type: String })
   note?: string;
 
+  /** Set when the user included a line its module had omitted; sync must not leave it out again. */
+  @Prop({ type: Boolean })
+  includedByUser?: boolean;
+
   /** manual lines: copy into the next fortnight when it is opened. */
   @Prop({ type: Boolean, default: false })
   repeat: boolean;

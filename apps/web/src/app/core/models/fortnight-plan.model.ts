@@ -29,6 +29,7 @@ export type PlanLine = {
   transactionId?: string;
   note?: string;
   repeat?: boolean;
+  includedByUser?: boolean;
   unplanned?: boolean;
   carriedFromPeriod?: string;
   carriedToPeriod?: string;

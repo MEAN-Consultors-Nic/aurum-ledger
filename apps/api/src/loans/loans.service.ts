@@ -466,12 +466,16 @@ export class LoansService {
     }
 
     // Undoing the capitalisation is only safe while nothing later has been
-    // settled on top of it.
-    const laterSettled = await this.occurrenceModel.countDocuments({
-      loanId: loan._id,
-      date: { $gt: occurrence.date },
-      status: { $in: ['confirmed', 'omitted'] },
-    });
+    // settled on top of it. An omission that did not touch the balance
+    // (fixed instalments, or no interest capitalised) can always come back.
+    const laterSettled =
+      occurrence.interestCapitalized > 0
+        ? await this.occurrenceModel.countDocuments({
+            loanId: loan._id,
+            date: { $gt: occurrence.date },
+            status: { $in: ['confirmed', 'omitted'] },
+          })
+        : 0;
     if (laterSettled > 0) {
       throw new BadRequestException(
         'A later payment has already been settled on this loan, so this one can no longer be reactivated. Adjust the newer payments first.',
