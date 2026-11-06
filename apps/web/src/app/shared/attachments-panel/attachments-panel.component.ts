@@ -1,8 +1,12 @@
 import {
   Component,
   ElementRef,
+  EventEmitter,
+  HostListener,
   Input,
   OnChanges,
+  OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
 } from '@angular/core';
@@ -23,6 +27,18 @@ type UploadingFile = {
   error?: string;
 };
 
+/** A file chosen before the parent exists (new estimate): uploaded after it is created. */
+type QueuedFile = {
+  id: string;
+  file: File;
+  /** Local object URL for image thumbnails. */
+  previewUrl?: string;
+};
+
+export type PendingUploadResult = { uploaded: number; failed: string[] };
+
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
 type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'sheet' | 'archive' | 'code' | 'file';
 
 @Component({
@@ -38,16 +54,32 @@ type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'sheet' | 'archive
             <span *ngIf="items.length > 0" class="ml-1 text-slate-400">({{ items.length }})</span>
           </div>
           <div class="text-xs text-slate-500">
-            Files are stored privately in S3. Image previews and downloads use short-lived signed URLs.
+            <ng-container *ngIf="isDeferred; else storedNote">
+              Add files or images now — they are uploaded when you create the {{ parentType }}.
+            </ng-container>
+            <ng-template #storedNote>
+              Files are stored privately in S3. Image previews and downloads use short-lived signed URLs.
+            </ng-template>
           </div>
         </div>
-        <button
-          type="button"
-          (click)="picker.click()"
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
-        >
-          + Upload
-        </button>
+        <div class="flex shrink-0 items-center gap-2">
+          <button
+            *ngIf="pasteSupported"
+            type="button"
+            (click)="pasteFromClipboard()"
+            title="Paste an image you copied (or press Ctrl/⌘+V anywhere on the page)"
+            class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+          >
+            Paste image
+          </button>
+          <button
+            type="button"
+            (click)="picker.click()"
+            class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-50"
+          >
+            + Upload
+          </button>
+        </div>
         <input
           #picker
           type="file"
@@ -68,7 +100,7 @@ type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'sheet' | 'archive
         (dragleave)="onDragLeave($event)"
         (drop)="onDrop($event)"
       >
-        Drag files here or click <span class="font-semibold">Upload</span> · max 25 MB per file
+        Drag files here, click <span class="font-semibold">Upload</span><ng-container *ngIf="capturePagePaste">, or paste an image with <span class="font-semibold">Ctrl/⌘+V</span></ng-container> · max 25 MB per file
       </div>
 
       <!-- In-progress uploads -->
@@ -87,6 +119,44 @@ type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'sheet' | 'archive
           </div>
         </li>
       </ul>
+
+      <!-- Queued (not uploaded yet: the parent does not exist yet) -->
+      <div *ngIf="queued.length > 0"
+        class="grid gap-3 px-5 pb-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <article
+          *ngFor="let q of queued"
+          class="group relative overflow-hidden rounded-xl border border-dashed border-slate-300 bg-white"
+        >
+          <div class="relative aspect-square w-full overflow-hidden bg-slate-100">
+            <img *ngIf="q.previewUrl" [src]="q.previewUrl" [alt]="q.file.name" class="h-full w-full object-cover" />
+            <div *ngIf="!q.previewUrl" class="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-500">
+              <svg class="h-12 w-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+              </svg>
+              <span class="rounded-md bg-white/80 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">{{ extension(q.file.name) }}</span>
+            </div>
+            <span class="absolute left-2 top-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">
+              Pending
+            </span>
+            <button
+              type="button"
+              (click)="removeQueued(q)"
+              title="Remove"
+              aria-label="Remove"
+              class="absolute right-2 top-2 rounded-md bg-rose-500/90 p-1.5 text-white transition hover:bg-rose-500"
+            >
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="px-3 py-2">
+            <div class="truncate text-xs font-medium text-slate-900" [title]="q.file.name">{{ q.file.name }}</div>
+            <div class="mt-0.5 text-[10px] text-slate-500">{{ formatBytes(q.file.size) }} · uploads on create</div>
+          </div>
+        </article>
+      </div>
 
       <!-- Grid -->
       <div *ngIf="items.length > 0"
@@ -205,7 +275,7 @@ type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'sheet' | 'archive
         </article>
       </div>
 
-      <div *ngIf="!isLoading && items.length === 0 && uploading.length === 0"
+      <div *ngIf="!isLoading && items.length === 0 && uploading.length === 0 && queued.length === 0"
         class="px-5 pb-5 text-center text-xs text-slate-500">
         No attachments yet.
       </div>
@@ -216,9 +286,19 @@ type FileKind = 'image' | 'video' | 'audio' | 'pdf' | 'doc' | 'sheet' | 'archive
     </section>
   `,
 })
-export class AttachmentsPanelComponent implements OnChanges {
+export class AttachmentsPanelComponent implements OnChanges, OnDestroy {
   @Input() parentType!: AttachmentParentType;
-  @Input() parentId!: string;
+  /** Empty while the parent does not exist yet: files are queued, see uploadPending(). */
+  @Input() parentId = '';
+  /**
+   * Accept images pasted anywhere on the page (Ctrl/⌘+V), except while the
+   * user is typing in a text field — there a paste is text, not a file.
+   * Off by default: two panels on one page (project + task modal) would both
+   * take the same paste. The "Paste image" button always works.
+   */
+  @Input() capturePagePaste = false;
+  /** Number of queued files, so the parent can mention them on its save button. */
+  @Output() queuedChange = new EventEmitter<number>();
 
   @ViewChild('picker') picker!: ElementRef<HTMLInputElement>;
 
@@ -227,6 +307,9 @@ export class AttachmentsPanelComponent implements OnChanges {
   isLoading = false;
   isDragging = false;
   error = '';
+  queued: QueuedFile[] = [];
+  readonly pasteSupported =
+    typeof navigator !== 'undefined' && !!navigator.clipboard && 'read' in navigator.clipboard;
 
   constructor(
     private readonly api: AttachmentsApiService,
@@ -239,7 +322,16 @@ export class AttachmentsPanelComponent implements OnChanges {
     }
   }
 
+  ngOnDestroy() {
+    for (const q of this.queued) if (q.previewUrl) URL.revokeObjectURL(q.previewUrl);
+  }
+
+  get isDeferred(): boolean {
+    return !this.parentId;
+  }
+
   load() {
+    if (!this.parentId || !this.parentType) return;
     this.isLoading = true;
     this.api.list(this.parentType, this.parentId).subscribe({
       next: (items) => {
@@ -256,7 +348,7 @@ export class AttachmentsPanelComponent implements OnChanges {
   onPickerChange(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files) return;
-    this.uploadFiles(Array.from(input.files));
+    this.addFiles(Array.from(input.files));
     input.value = '';
   }
 
@@ -276,7 +368,122 @@ export class AttachmentsPanelComponent implements OnChanges {
     event.preventDefault();
     this.isDragging = false;
     if (!event.dataTransfer?.files) return;
-    this.uploadFiles(Array.from(event.dataTransfer.files));
+    this.addFiles(Array.from(event.dataTransfer.files));
+  }
+
+  /** Ctrl/⌘+V anywhere on the page with an image on the clipboard. */
+  @HostListener('document:paste', ['$event'])
+  onDocumentPaste(event: ClipboardEvent) {
+    if (!this.capturePagePaste) return;
+    const files = Array.from(event.clipboardData?.files ?? []).filter((f) =>
+      f.type.startsWith('image/'),
+    );
+    if (files.length === 0) return;
+    if (this.isTypingTarget(event.target)) return;
+    event.preventDefault();
+    this.addFiles(files.map((f, i) => this.namePasted(f, i)));
+  }
+
+  /** "Paste image" button: reads images from the system clipboard. */
+  async pasteFromClipboard() {
+    this.error = '';
+    try {
+      const entries = await navigator.clipboard.read();
+      const files: File[] = [];
+      for (const entry of entries) {
+        const type = entry.types.find((t) => t.startsWith('image/'));
+        if (!type) continue;
+        const blob = await entry.getType(type);
+        files.push(this.namePasted(new File([blob], 'image', { type }), files.length));
+      }
+      if (files.length === 0) {
+        this.error = 'The clipboard has no image. Copy an image (or take a screenshot) and try again.';
+        return;
+      }
+      this.addFiles(files);
+    } catch {
+      this.error =
+        'The browser did not allow reading the clipboard. Press Ctrl/⌘+V on the page instead.';
+    }
+  }
+
+  private isTypingTarget(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA') return true;
+    if (tag === 'INPUT') {
+      const type = (el as HTMLInputElement).type;
+      return !['checkbox', 'radio', 'button', 'submit', 'file', 'range', 'color'].includes(type);
+    }
+    return false;
+  }
+
+  /** Clipboard images arrive as "image.png": give them a readable, unique name. */
+  private namePasted(file: File, index: number): File {
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/\+.*$/, '');
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+    const name = `pasted-${stamp}${index ? `-${index + 1}` : ''}.${ext}`;
+    return new File([file], name, { type: file.type });
+  }
+
+  /** Upload now, or queue until the parent exists. Oversized files are refused here. */
+  private addFiles(files: File[]) {
+    const tooBig = files.filter((f) => f.size > MAX_FILE_BYTES);
+    const ok = files.filter((f) => f.size <= MAX_FILE_BYTES);
+    const tooBigMessage = tooBig.length
+      ? `Too large (max 25 MB): ${tooBig.map((f) => f.name).join(', ')}`
+      : '';
+    this.error = tooBigMessage;
+    if (ok.length === 0) return;
+    if (this.isDeferred) {
+      this.queued = [
+        ...this.queued,
+        ...ok.map((file) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+        })),
+      ];
+      this.queuedChange.emit(this.queued.length);
+      return;
+    }
+    this.uploadFiles(ok);
+    this.error = tooBigMessage;
+  }
+
+  removeQueued(q: QueuedFile) {
+    if (q.previewUrl) URL.revokeObjectURL(q.previewUrl);
+    this.queued = this.queued.filter((x) => x.id !== q.id);
+    this.queuedChange.emit(this.queued.length);
+  }
+
+  /**
+   * Uploads the queued files to the parent that now exists (one at a time,
+   * so a bad file does not stop the rest). Returns what failed by name.
+   */
+  async uploadPending(parentType: AttachmentParentType, parentId: string): Promise<PendingUploadResult> {
+    const result: PendingUploadResult = { uploaded: 0, failed: [] };
+    for (const q of [...this.queued]) {
+      const ok = await new Promise<boolean>((resolve) => {
+        this.api.upload(q.file, parentType, parentId).subscribe({
+          next: (event) => {
+            if (event.kind === 'done') resolve(true);
+          },
+          error: () => resolve(false),
+        });
+      });
+      if (ok) {
+        result.uploaded++;
+        this.removeQueued(q);
+      } else {
+        result.failed.push(q.file.name);
+      }
+    }
+    return result;
   }
 
   private uploadFiles(files: File[]) {

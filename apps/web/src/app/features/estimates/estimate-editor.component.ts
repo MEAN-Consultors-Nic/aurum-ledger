@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -100,7 +100,7 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
             (click)="save()"
             class="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white disabled:opacity-40"
           >
-            {{ isSaving ? 'Saving…' : (isNew ? 'Create estimate' : 'Save changes') }}
+            {{ isSaving ? 'Saving…' : (isNew ? (queuedAttachments ? 'Create estimate + ' + queuedAttachments + ' file' + (queuedAttachments === 1 ? '' : 's') : 'Create estimate') : 'Save changes') }}
           </button>
         </div>
       </header>
@@ -283,10 +283,13 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
             </section>
 
             <!-- Attachments -->
+            <!-- New estimate: files are queued and uploaded right after it is created. -->
             <app-attachments-panel
-              *ngIf="!isNew && estimateId"
+              #attachments
               parentType="estimate"
-              [parentId]="estimateId"
+              [parentId]="estimateId ?? ''"
+              [capturePagePaste]="true"
+              (queuedChange)="queuedAttachments = $event"
             />
 
             <!-- Bottom spacer -->
@@ -385,6 +388,10 @@ type EstimateStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | '
 export class EstimateEditorComponent implements OnInit {
   estimateId: string | null = null;
   isNew = true;
+
+  /** Attachments panel: holds files added before the estimate exists. */
+  @ViewChild('attachments') attachments?: AttachmentsPanelComponent;
+  queuedAttachments = 0;
   /** Share fields of the loaded estimate, for the "Share by link" card. */
   shareState: Pick<
     EstimateItem,
@@ -441,6 +448,9 @@ export class EstimateEditorComponent implements OnInit {
     this.estimateId = idParam && idParam !== 'new' ? idParam : null;
     this.isNew = !this.estimateId;
     this.isLoading = true;
+    // Set by the create flow when some queued attachments failed to upload.
+    const warning = typeof history !== 'undefined' ? history.state?.attachmentWarning : undefined;
+    if (typeof warning === 'string' && warning) this.validationError = warning;
 
     forkJoin({
       clients: this.clientsApi.list({ isActive: true, limit: 500 }),
@@ -547,9 +557,20 @@ export class EstimateEditorComponent implements OnInit {
       });
     } else {
       this.estimatesApi.create(payload).subscribe({
-        next: (created) => {
+        next: async (created) => {
+          // Files added before the estimate existed go up now, then open it.
+          let attachmentWarning = '';
+          if (this.attachments && this.queuedAttachments > 0) {
+            this.saveBanner = `Estimate created. Uploading ${this.queuedAttachments} attachment(s)…`;
+            const r = await this.attachments.uploadPending('estimate', created._id);
+            if (r.failed.length) {
+              attachmentWarning = `The estimate was created, but these files could not be uploaded: ${r.failed.join(', ')}. Add them again below.`;
+            }
+          }
           this.isSaving = false;
-          this.router.navigate(['/estimates', created._id]);
+          this.router.navigate(['/estimates', created._id], {
+            state: attachmentWarning ? { attachmentWarning } : undefined,
+          });
         },
         error: (err) => {
           this.isSaving = false;
