@@ -315,7 +315,13 @@ export class NotificationsSchedulerService {
     const plans = await this.fortnightPlanModel
       .find({
         status: 'open',
-        lines: { $elemMatch: { status: 'planned', dueDate: { $lt: today } } },
+        lines: {
+          $elemMatch: {
+            status: 'planned',
+            dueDate: { $lt: today },
+            carriedFromPeriod: { $in: [null, ''] },
+          },
+        },
       })
       .lean();
     if (plans.length === 0) return;
@@ -327,6 +333,9 @@ export class NotificationsSchedulerService {
           (line) =>
             line.status === 'planned' &&
             !line.unplanned &&
+            // Carrying is an explicit postponement: the original due date
+            // stays for history, but must not trigger overdue email again.
+            !line.carriedFromPeriod &&
             line.dueDate &&
             line.dueDate < today,
         )
